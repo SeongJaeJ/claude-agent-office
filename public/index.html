@@ -116,29 +116,39 @@
   /* ── 오피스 ── */
   .office {
     flex: 1; position: relative;
-    background: #e8dcc8;
+    background: #0a0a12;
     overflow: hidden; min-width: 0;
   }
+  /* 배경 이미지 레이어 */
+  .office-bg {
+    position: absolute; inset: 0; z-index: 0;
+    background: url('/assets/pixel-lofi.png') center center / cover no-repeat;
+    opacity: 0.85;
+    filter: saturate(1.4) brightness(1.1);
+    pointer-events: none;
+  }
+  /* 다크 오버레이 — 배경 위, 에이전트 아래 */
   .floor {
     position: absolute; inset: 0;
-    background-image:
-      linear-gradient(45deg, #d9ccb4 25%, transparent 25%),
-      linear-gradient(-45deg, #d9ccb4 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #d9ccb4 75%),
-      linear-gradient(-45deg, transparent 75%, #d9ccb4 75%);
-    background-size: 40px 40px;
-    background-position: 0 0, 0 20px, 20px -20px, -20px 0;
-    opacity: 0.5; pointer-events: none; z-index: 0;
+    background: linear-gradient(180deg, rgba(10,10,18,0.3) 0%, rgba(10,10,18,0.15) 50%, rgba(10,10,18,0.35) 100%);
+    pointer-events: none; z-index: 1;
   }
-  /* 복도 라인 */
+  /* 비네팅 + 스캔라인 */
   .floor::after {
     content: ''; position: absolute; inset: 0;
     background:
-      linear-gradient(90deg, transparent 33%, rgba(0,0,0,0.03) 33%, rgba(0,0,0,0.03) 34%, transparent 34%,
-                              transparent 66%, rgba(0,0,0,0.03) 66%, rgba(0,0,0,0.03) 67%, transparent 67%),
-      linear-gradient(180deg, transparent 33%, rgba(0,0,0,0.03) 33%, rgba(0,0,0,0.03) 34%, transparent 34%,
-                              transparent 66%, rgba(0,0,0,0.03) 66%, rgba(0,0,0,0.03) 67%, transparent 67%);
+      radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%),
+      repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.015) 3px, rgba(0,0,0,0.015) 4px);
     pointer-events: none;
+  }
+  /* 천장 조명 효과 */
+  .ceiling-lights {
+    position: absolute; inset: 0; z-index: 2;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 200px 300px at 25% 0%, rgba(140,160,255,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 200px 300px at 50% 0%, rgba(140,160,255,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 200px 300px at 75% 0%, rgba(140,160,255,0.06) 0%, transparent 70%);
   }
 
   /* ── 사무실 가구 (빈 상태) ── */
@@ -147,21 +157,6 @@
     pointer-events: none;
   }
   .furniture-item { position: absolute; }
-  /* 화분 */
-  .plant { width: 24px; height: 36px; }
-  .plant .pot { width: 24px; height: 14px; background: #c47a4a; border-radius: 0 0 4px 4px; position: absolute; bottom: 0; border: 2px solid #a06030; }
-  .plant .leaves { width: 22px; height: 24px; background: #5ab870; border-radius: 50%; position: absolute; top: 0; left: 1px; }
-  .plant .leaves::before { content:''; position:absolute; width:16px; height:18px; background:#72d48e; border-radius:50%; top:-5px; left:3px; }
-  /* 워터쿨러 */
-  .water-cooler { width: 22px; height: 42px; }
-  .water-cooler .tank { width: 16px; height: 20px; background: #88ccee; border-radius: 8px 8px 0 0; position: absolute; top: 0; left: 3px; border: 2px solid #66aacc; }
-  .water-cooler .body { width: 22px; height: 22px; background: #eee; position: absolute; bottom: 0; border-radius: 2px; border: 2px solid #ccc; }
-  /* 시계 */
-  .wall-clock {
-    width: 30px; height: 30px; background: #fff; border: 3px solid #8a7a6a;
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-size: 6px; color: #333; box-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-  }
 
   /* ── 빈 사무실 메시지 ── */
   .empty-office-msg {
@@ -173,10 +168,10 @@
   }
   .empty-office-msg.hidden { opacity: 0; pointer-events: none; }
   .empty-office-msg .msg {
-    font-size: 12px; color: #8a7a6a; text-align: center; line-height: 2.2;
-    background: rgba(255,255,255,0.7); padding: 20px 30px;
-    border: 3px solid #c4b8a4; border-radius: 4px;
-    box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
+    font-size: 12px; color: #6a7a8a; text-align: center; line-height: 2.2;
+    background: rgba(13,17,23,0.9); padding: 20px 30px;
+    border: 2px solid #30363d; border-radius: 4px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
   }
 
   /* ── 에이전트 그리드 ── */
@@ -185,35 +180,70 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-auto-rows: 1fr;
-    gap: 4px; padding: 4px;
+    gap: 2px; padding: 2px;
     transition: opacity 0.6s;
   }
   .agents-grid.hidden { opacity: 0; pointer-events: none; }
 
-  /* ── 큐비클 셀 (컬러 파티션) ── */
+  /* ── 큐비클 셀 ── */
   .cubicle-cell {
     position: relative;
-    border-radius: 4px;
+    border-radius: 6px;
     overflow: hidden;
+    background: rgba(13,17,23,0.4);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    border: 1px solid rgba(255,255,255,0.06);
+    transition: border-color 0.4s, box-shadow 0.4s, background 0.4s;
   }
-  .cubicle-wall-top {
+  .cubicle-cell:hover {
+    border-color: rgba(255,255,255,0.1);
+    background: rgba(13,17,23,0.7);
+  }
+  .cubicle-cell.has-agent {
+    border-color: color-mix(in srgb, var(--agent-color, #30363d) 40%, transparent);
+    box-shadow:
+      inset 0 0 30px rgba(0,0,0,0.2),
+      0 0 15px color-mix(in srgb, var(--agent-color, #30363d) 10%, transparent),
+      0 4px 20px rgba(0,0,0,0.3);
+  }
+  .cubicle-cell.has-agent:hover {
+    border-color: color-mix(in srgb, var(--agent-color, #30363d) 60%, transparent);
+    box-shadow:
+      inset 0 0 30px rgba(0,0,0,0.2),
+      0 0 20px color-mix(in srgb, var(--agent-color, #30363d) 20%, transparent),
+      0 4px 20px rgba(0,0,0,0.3);
+  }
+  .cubicle-cell.is-main {
+    border-color: rgba(233,69,96,0.4);
+    box-shadow:
+      inset 0 0 40px rgba(233,69,96,0.05),
+      0 0 20px rgba(233,69,96,0.1),
+      0 4px 24px rgba(0,0,0,0.4);
+  }
+  .cubicle-cell.empty-cell {
+    background: rgba(10,10,18,0.4);
+    border-color: rgba(255,255,255,0.02);
+  }
+  /* 큐비클 상단 악센트 라인 */
+  .cubicle-accent {
     position: absolute; top: 0; left: 0; right: 0;
-    height: 8px;
-    border-radius: 4px 4px 0 0;
+    height: 2px;
+    opacity: 0.7;
+    border-radius: 6px 6px 0 0;
   }
-  .cubicle-wall-left {
-    position: absolute; top: 0; bottom: 0; left: 0;
-    width: 8px;
-    border-radius: 4px 0 0 4px;
+  /* 큐비클 바닥 앰비언트 (모니터 빛 반사) */
+  .cubicle-ambient {
+    position: absolute; bottom: 0; left: 10%; right: 10%;
+    height: 40%;
+    border-radius: 50%;
+    opacity: 0;
+    filter: blur(20px);
+    transition: opacity 0.5s;
+    pointer-events: none;
+    z-index: 0;
   }
-  .cubicle-wall-right {
-    position: absolute; top: 0; bottom: 0; right: 0;
-    width: 8px;
-    border-radius: 0 4px 4px 0;
-  }
-  .cubicle-floor {
-    position: absolute; inset: 0;
-    border-radius: 4px;
+  .cubicle-cell.working .cubicle-ambient {
     opacity: 0.15;
   }
 
@@ -248,76 +278,110 @@
   }
   .desk {
     width: 120px; height: 36px;
-    background: linear-gradient(180deg, #d4a060, #c08840);
-    border: 2px solid #a07030;
+    background: linear-gradient(180deg, #2d333b, #22272e);
+    border: 2px solid #444c56;
     border-radius: 2px;
     display: flex; align-items: center; justify-content: center;
     gap: 4px;
     position: relative;
-    box-shadow: 0 4px 0 #906020, 0 6px 4px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 0 #1c2128, 0 6px 4px rgba(0,0,0,0.3);
   }
   .desk::after {
     content: ''; position: absolute; bottom: -10px; left: 8px;
-    width: 6px; height: 6px; background: #a07030;
-    box-shadow: 90px 0 0 #a07030;
+    width: 6px; height: 6px; background: #2d333b;
+    box-shadow: 90px 0 0 #2d333b;
   }
   .agent.main .desk {
     width: 140px; height: 40px;
-    background: linear-gradient(180deg, #b07ae0, #9060c0);
-    border-color: #7848a0;
-    box-shadow: 0 4px 0 #6838a0, 0 6px 4px rgba(0,0,0,0.15);
+    background: linear-gradient(180deg, #3b1d3d, #2a1030);
+    border-color: #e94560;
+    box-shadow: 0 4px 0 #1a0820, 0 6px 4px rgba(233,69,96,0.15);
   }
-  .agent.main .desk::after { background: #7848a0; box-shadow: 110px 0 0 #7848a0; }
+  .agent.main .desk::after { background: #3b1d3d; box-shadow: 110px 0 0 #3b1d3d; }
 
   .monitor {
     width: 40px; height: 30px;
-    background: #1a1a2e; border: 2px solid #444;
+    background: #0d1117; border: 2px solid #30363d;
     border-radius: 2px;
     position: relative; overflow: hidden;
-    box-shadow: 0 0 4px rgba(0,0,0,0.3);
+    box-shadow: 0 0 6px rgba(0,0,0,0.5);
   }
-  .agent.main .monitor { width: 48px; height: 34px; border-color: #e94560; }
+  .agent.main .monitor { width: 48px; height: 34px; border-color: #e94560; box-shadow: 0 0 8px rgba(233,69,96,0.3); }
   .monitor::after {
     content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
-    width: 10px; height: 4px; background: #444; border-radius: 0 0 2px 2px;
+    width: 10px; height: 4px; background: #30363d; border-radius: 0 0 2px 2px;
   }
   .monitor-screen {
     width: 100%; height: 100%; padding: 2px;
-    font-size: 3px; color: #333; line-height: 1.3; overflow: hidden;
+    font-size: 3px; color: #21262d; line-height: 1.3; overflow: hidden;
   }
   .monitor-screen.active {
-    color: #0f0;
+    color: #3fb950;
     animation: code-scroll 2s linear infinite;
+    text-shadow: 0 0 4px rgba(63,185,80,0.5);
   }
-  .agent.main .monitor-screen.active { color: #e94560; }
+  .agent.main .monitor-screen.active { color: #e94560; text-shadow: 0 0 4px rgba(233,69,96,0.5); }
   @keyframes code-scroll { 0%{transform:translateY(0)} 100%{transform:translateY(-20px)} }
+
+  /* 모니터 글로우 이펙트 */
+  .monitor-glow {
+    position: absolute; inset: -8px;
+    border-radius: 8px; opacity: 0;
+    background: var(--glow-color, rgba(63,185,80,0.2));
+    filter: blur(12px);
+    transition: opacity 0.5s;
+    pointer-events: none;
+    z-index: -1;
+  }
+  .monitor-screen.active ~ .monitor-glow {
+    opacity: 1;
+    animation: monitor-breathe 3s ease-in-out infinite;
+  }
+  @keyframes monitor-breathe {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+  }
+
+  /* 스크린 플리커 */
+  @keyframes screen-flicker {
+    0%, 100% { opacity: 1; }
+    92% { opacity: 1; }
+    93% { opacity: 0.85; }
+    94% { opacity: 1; }
+    97% { opacity: 0.92; }
+    98% { opacity: 1; }
+  }
+  .monitor-screen.active {
+    animation: code-scroll 2s linear infinite, screen-flicker 8s steps(1) infinite;
+  }
 
   /* 키보드 */
   .keyboard {
     width: 28px; height: 10px;
-    background: #555; border: 1px solid #666;
+    background: #2d333b; border: 1px solid #444c56;
     border-radius: 1px;
     position: relative;
   }
   .keyboard::before {
     content: ''; position: absolute; inset: 2px;
-    background: repeating-linear-gradient(90deg, #777 0px, #777 2px, #555 2px, #555 3px);
+    background: repeating-linear-gradient(90deg, #444c56 0px, #444c56 2px, #2d333b 2px, #2d333b 3px);
   }
   .keyboard.typing {
     animation: kbd-press 0.1s steps(2) infinite;
+    box-shadow: 0 0 4px rgba(63,185,80,0.3);
   }
   @keyframes kbd-press { 50% { transform: scaleY(0.85); } }
 
   /* 커피컵 */
   .coffee-cup {
     width: 8px; height: 10px;
-    background: #fff; border-radius: 0 0 2px 2px;
-    border: 1px solid #ccc;
+    background: #2d333b; border-radius: 0 0 2px 2px;
+    border: 1px solid #444c56;
     position: relative;
   }
   .coffee-cup::before {
     content: ''; position: absolute; right: -4px; top: 2px;
-    width: 4px; height: 5px; border: 1px solid #ccc;
+    width: 4px; height: 5px; border: 1px solid #444c56;
     border-radius: 0 3px 3px 0; border-left: none;
   }
   .coffee-cup .steam {
@@ -325,37 +389,37 @@
     width: 6px; height: 6px; opacity: 0;
   }
   .coffee-cup .steam.visible {
-    opacity: 0.5;
+    opacity: 0.4;
     animation: steam-rise 1.5s ease-out infinite;
   }
   .coffee-cup .steam::before, .coffee-cup .steam::after {
     content: '~'; position: absolute;
-    font-size: 5px; color: #888; font-family: sans-serif;
+    font-size: 5px; color: #484f58; font-family: sans-serif;
   }
   .coffee-cup .steam::before { left: 0; }
   .coffee-cup .steam::after { left: 3px; top: -2px; }
-  @keyframes steam-rise { 0%{opacity:0.5;transform:translateY(0)} 100%{opacity:0;transform:translateY(-6px)} }
+  @keyframes steam-rise { 0%{opacity:0.4;transform:translateY(0)} 100%{opacity:0;transform:translateY(-6px)} }
 
   /* 의자 */
   .chair {
     width: 22px; height: 8px;
-    background: linear-gradient(180deg, #777, #555);
+    background: linear-gradient(180deg, #2d333b, #22272e);
     border-radius: 10px 10px 2px 2px;
     margin-top: -4px;
     position: relative;
   }
   .chair::after {
     content: ''; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
-    width: 12px; height: 4px; background: #444; border-radius: 0 0 4px 4px;
+    width: 12px; height: 4px; background: #1c2128; border-radius: 0 0 4px 4px;
   }
 
   .role-label {
     font-size: 12px; padding: 3px 8px;
     white-space: nowrap; margin-top: 10px;
-    text-align: center; border: 2px solid;
-    background: rgba(255,255,255,0.85);
-    color: #333;
-    box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    text-align: center; border: 1px solid;
+    background: rgba(13,17,23,0.85);
+    color: #c9d1d9;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   }
   .status-indicator {
     display: flex; align-items: center; justify-content: center;
@@ -363,23 +427,23 @@
   }
   .status-dot {
     width: 8px; height: 8px;
-    border: 1px solid rgba(0,0,0,0.15);
+    border: 1px solid rgba(255,255,255,0.1);
     animation: status-pulse 1.5s infinite;
   }
   @keyframes status-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
   .status-text {
-    font-size: 12px; color: #888;
-    background: rgba(255,255,255,0.8); padding: 2px 5px;
-    border: 1px solid #ccc;
+    font-size: 12px; color: #6e7681;
+    background: rgba(13,17,23,0.8); padding: 2px 5px;
+    border: 1px solid #21262d;
   }
   .speech-bubble {
-    background: #fff; border: 2px solid;
-    padding: 5px 10px; font-size: 12px; color: #333;
+    background: #161b22; border: 1px solid;
+    padding: 5px 10px; font-size: 12px; color: #c9d1d9;
     white-space: nowrap; opacity: 0;
     transition: opacity 0.3s, transform 0.3s; pointer-events: none; z-index: 30;
     margin-bottom: 2px; text-align: center;
     max-width: 180px; overflow: hidden; text-overflow: ellipsis;
-    box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     transform: translateY(4px);
   }
   .speech-bubble::after {
@@ -387,7 +451,7 @@
     width: 0; height: 0;
     border-left: 5px solid transparent;
     border-right: 5px solid transparent;
-    border-top: 6px solid var(--bubble-color, #666);
+    border-top: 6px solid var(--bubble-color, #30363d);
   }
   .agent:hover .speech-bubble,
   .agent.speaking .speech-bubble { opacity: 1; transform: translateY(0); }
@@ -396,12 +460,12 @@
   .connections { position: absolute; inset: 0; pointer-events: none; z-index: 2; opacity: 0; transition: opacity 0.6s; }
   .connections.visible { opacity: 1; }
   .connection-line {
-    stroke-width: 1.5; opacity: 0.25;
-    stroke-dasharray: 6 4; animation: dash-flow 1.5s linear infinite;
+    stroke-width: 1; opacity: 0.15;
+    stroke-dasharray: 4 6; animation: dash-flow 2s linear infinite;
   }
   .connection-line.active {
-    stroke-width: 2.5; opacity: 0.7;
-    filter: drop-shadow(0 0 3px currentColor);
+    stroke-width: 2; opacity: 0.6;
+    filter: drop-shadow(0 0 4px currentColor);
   }
   @keyframes dash-flow { to{stroke-dashoffset:-10} }
 
@@ -480,6 +544,11 @@
     width: 50%; min-width: 400px;
     display: flex; flex-direction: column;
     border-left: 3px solid #333;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .right-panel.drop-highlight {
+    border-color: #6bcb77;
+    box-shadow: inset 0 0 20px rgba(107,203,119,0.15);
   }
 
   /* ── 터미널 패널 ── */
@@ -505,6 +574,7 @@
   .monitor-log-panel {
     flex: 1; display: none; flex-direction: column;
     background: #0a0a16;
+    min-height: 0;
   }
   .monitor-log-panel.visible { display: flex; }
   .monitor-log-header {
@@ -521,6 +591,7 @@
   .monitor-log-content {
     flex: 1; overflow-y: auto;
     padding: 10px 14px; font-size: 12px; line-height: 1.8;
+    min-height: 0;
   }
   .monitor-log-content::-webkit-scrollbar { width: 5px; }
   .monitor-log-content::-webkit-scrollbar-thumb { background: #333; }
@@ -542,8 +613,10 @@
 
 <div class="main-area">
   <div class="office" id="office">
+    <div class="office-bg"></div>
     <div class="floor"></div>
-    <!-- 사무실 가구 (항상 보임) -->
+    <div class="ceiling-lights"></div>
+    <!-- 사무실 가구 -->
     <div class="office-furniture" id="officeFurniture"></div>
     <!-- 연결선 -->
     <svg class="connections" id="connections"></svg>
@@ -583,19 +656,42 @@
 // ══════════════════════════════════════
 // 픽셀 캐릭터 생성
 // ══════════════════════════════════════
-function createPixelCharacter(skinColor, hairColor, shirtColor, scale = 5) {
+function createPixelCharacter(skinColor, hairColor, shirtColor, scale = 4) {
+  // 16x20 확장 스프라이트 — 더 디테일한 캐릭터
+  // 0=투명, 1=머리카락, 2=피부, 3=셔츠, 4=눈, 5=피부(밝은면), 6=바지, 7=신발, 8=피부(그림자)
   const sprite = [
-    [0,0,0,1,1,1,1,0,0,0],[0,0,1,1,1,1,1,1,0,0],
-    [0,0,1,2,2,2,2,1,0,0],[0,0,2,2,2,2,2,2,0,0],
-    [0,0,2,4,2,2,4,2,0,0],[0,0,2,2,2,2,2,2,0,0],
-    [0,0,0,2,5,5,2,0,0,0],[0,0,0,0,2,2,0,0,0,0],
-    [0,0,3,3,3,3,3,3,0,0],[0,3,3,3,3,3,3,3,3,0],
-    [0,3,3,3,3,3,3,3,3,0],[0,0,3,3,3,3,3,3,0,0],
-    [0,0,0,2,0,0,2,0,0,0],[0,0,0,2,0,0,2,0,0,0],
+    [0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0],
+    [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],
+    [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+    [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+    [0,0,0,1,2,2,2,2,2,2,2,2,1,0,0,0],
+    [0,0,0,2,5,2,2,2,2,2,2,8,2,0,0,0],
+    [0,0,0,2,4,2,2,2,2,2,4,2,2,0,0,0],
+    [0,0,0,2,2,2,2,5,5,2,2,2,2,0,0,0],
+    [0,0,0,0,2,2,2,2,2,2,2,2,0,0,0,0],
+    [0,0,0,0,0,8,2,2,2,8,0,0,0,0,0,0],
+    [0,0,0,0,3,3,3,3,3,3,3,3,0,0,0,0],
+    [0,0,0,3,3,3,3,3,3,3,3,3,3,0,0,0],
+    [0,0,2,3,3,3,3,3,3,3,3,3,3,2,0,0],
+    [0,0,2,3,3,3,3,3,3,3,3,3,3,2,0,0],
+    [0,0,0,2,3,3,3,3,3,3,3,3,2,0,0,0],
+    [0,0,0,0,3,3,3,3,3,3,3,3,0,0,0,0],
+    [0,0,0,0,6,6,6,0,0,6,6,6,0,0,0,0],
+    [0,0,0,0,6,6,6,0,0,6,6,6,0,0,0,0],
+    [0,0,0,0,6,6,6,0,0,6,6,6,0,0,0,0],
+    [0,0,0,0,7,7,7,0,0,7,7,7,0,0,0,0],
   ];
-  const colorMap = { 0:'transparent', 1:hairColor, 2:skinColor, 3:shirtColor, 4:'#111', 5:skinColor };
+  // 피부 밝은/어두운 톤 생성
+  const skinBright = lightenColor(skinColor, 0.15);
+  const skinShadow = darkenColor(skinColor, 0.2);
+  const pantsColor = darkenColor(shirtColor, 0.4);
+  const shoeColor = '#1a1a2e';
+  const colorMap = {
+    0:'transparent', 1:hairColor, 2:skinColor, 3:shirtColor,
+    4:'#111', 5:skinBright, 6:pantsColor, 7:shoeColor, 8:skinShadow
+  };
   const canvas = document.createElement('canvas');
-  canvas.width = 10 * scale; canvas.height = 14 * scale;
+  canvas.width = 16 * scale; canvas.height = 20 * scale;
   canvas.style.imageRendering = 'pixelated';
   const ctx = canvas.getContext('2d');
   for (let y = 0; y < sprite.length; y++)
@@ -606,50 +702,26 @@ function createPixelCharacter(skinColor, hairColor, shirtColor, scale = 5) {
   return canvas;
 }
 
+function lightenColor(hex, amount) {
+  const r = Math.min(255, parseInt(hex.slice(1,3),16) + Math.round(255*amount));
+  const g = Math.min(255, parseInt(hex.slice(3,5),16) + Math.round(255*amount));
+  const b = Math.min(255, parseInt(hex.slice(5,7),16) + Math.round(255*amount));
+  return `rgb(${r},${g},${b})`;
+}
+function darkenColor(hex, amount) {
+  const r = Math.max(0, Math.round(parseInt(hex.slice(1,3),16) * (1-amount)));
+  const g = Math.max(0, Math.round(parseInt(hex.slice(3,5),16) * (1-amount)));
+  const b = Math.max(0, Math.round(parseInt(hex.slice(5,7),16) * (1-amount)));
+  return `rgb(${r},${g},${b})`;
+}
+
 // ══════════════════════════════════════
 // 사무실 가구 렌더링
 // ══════════════════════════════════════
 function renderFurniture() {
+  // 다크 테마에서는 별도 가구 불필요 — 큐비클 내부에 통합
   const container = document.getElementById('officeFurniture');
   container.innerHTML = '';
-
-  // 화분들
-  const plants = [
-    { x: '5%', y: '10%' }, { x: '92%', y: '15%' },
-    { x: '8%', y: '85%' }, { x: '90%', y: '80%' },
-    { x: '48%', y: '5%' },
-  ];
-  for (const pos of plants) {
-    const p = document.createElement('div');
-    p.className = 'furniture-item plant';
-    p.style.left = pos.x; p.style.top = pos.y;
-    p.innerHTML = '<div class="leaves"></div><div class="pot"></div>';
-    container.appendChild(p);
-  }
-
-  // 워터쿨러
-  const wc = document.createElement('div');
-  wc.className = 'furniture-item water-cooler';
-  wc.style.left = '3%'; wc.style.top = '45%';
-  wc.innerHTML = '<div class="tank"></div><div class="body"></div>';
-  container.appendChild(wc);
-
-  // 시계
-  const clock = document.createElement('div');
-  clock.className = 'furniture-item wall-clock';
-  clock.style.right = '4%'; clock.style.top = '3%';
-  clock.id = 'wallClock';
-  container.appendChild(clock);
-
-  // 시계 업데이트 (중복 등록 방지)
-  if (window._clockInterval) clearInterval(window._clockInterval);
-  window._clockInterval = setInterval(() => {
-    const el = document.getElementById('wallClock');
-    if (el) {
-      const now = new Date();
-      el.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-    }
-  }, 1000);
 }
 
 // ══════════════════════════════════════
@@ -714,8 +786,38 @@ class Session {
     this.termEl = null;
     this.isManual = false;
     this.claudeDetected = false; // Claude 실행 감지 여부
+    this.linkedHookSessionId = null; // 연결된 훅 세션 ID
     this.idleTimers = {}; // 에이전트별 done→idle 타이머 ID
   }
+}
+
+// 훅 세션 ID → Interactive 세션 ID 매핑
+const hookSessionLinks = new Map();
+
+function findLinkedManualSession(hookSessionId) {
+  // 이미 링크된 경우
+  if (hookSessionLinks.has(hookSessionId)) {
+    const manualId = hookSessionLinks.get(hookSessionId);
+    if (sessions.has(manualId)) return sessions.get(manualId);
+    hookSessionLinks.delete(hookSessionId);
+  }
+  // Claude가 감지된 Interactive 세션 찾기
+  for (const [id, s] of sessions) {
+    if (s.isManual && s.claudeDetected && !s.linkedHookSessionId) {
+      hookSessionLinks.set(hookSessionId, id);
+      s.linkedHookSessionId = hookSessionId;
+      return s;
+    }
+  }
+  // Interactive 세션이 하나뿐이면 바로 연결
+  const manualSessions = [...sessions.values()].filter(s => s.isManual && !s.linkedHookSessionId);
+  if (manualSessions.length === 1) {
+    const s = manualSessions[0];
+    hookSessionLinks.set(hookSessionId, s.id);
+    s.linkedHookSessionId = hookSessionId;
+    return s;
+  }
+  return null;
 }
 
 function getOrCreateSession(sessionId, name, path) {
@@ -746,6 +848,10 @@ function removeSession(id) {
     if (session.idleTimers) {
       Object.values(session.idleTimers).forEach(clearTimeout);
     }
+    // 훅 세션 링크 정리
+    if (session.linkedHookSessionId) {
+      hookSessionLinks.delete(session.linkedHookSessionId);
+    }
     destroySessionTerminal(session);
   }
   sessions.delete(id);
@@ -765,6 +871,25 @@ function removeSession(id) {
 function detectClaude(session) {
   if (session.claudeDetected) return;
   session.claudeDetected = true;
+  // Interactive 세션이면 기존 Monitoring 세션 병합
+  if (session.isManual && !session.linkedHookSessionId) {
+    for (const [id, s] of sessions) {
+      if (!s.isManual && !hookSessionLinks.has(id)) {
+        hookSessionLinks.set(id, session.id);
+        session.linkedHookSessionId = id;
+        // 로그, 상태 병합
+        session.logs.push(...s.logs);
+        Object.assign(session.agentStates, s.agentStates);
+        for (const aid of s.activeAgents) session.activeAgents.add(aid);
+        Object.assign(session.stats, s.stats);
+        // Monitoring 세션 제거
+        if (s.idleTimers) Object.values(s.idleTimers).forEach(clearTimeout);
+        sessions.delete(id);
+        if (activeSessionId === id) activeSessionId = session.id;
+        break;
+      }
+    }
+  }
   if (session.id === activeSessionId) {
     showAgents();
   }
@@ -878,34 +1003,17 @@ function getAgentCenter(agentId) {
   return { x: er.left - gr.left + er.width / 2, y: er.top - gr.top + er.height / 2 };
 }
 
-// 에이전트 색상의 파스텔 버전 생성
-function pastelColor(hex, lightness = 0.7) {
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
-  const pr = Math.round(r + (255-r) * lightness);
-  const pg = Math.round(g + (255-g) * lightness);
-  const pb = Math.round(b + (255-b) * lightness);
-  return `rgb(${pr},${pg},${pb})`;
-}
-
 function createAgentEl(agent) {
-  // 큐비클 셀 (파티션 컨테이너)
   const cell = document.createElement('div');
-  cell.className = 'cubicle-cell';
+  cell.className = `cubicle-cell has-agent${agent.isMain ? ' is-main' : ''}`;
+  cell.style.setProperty('--agent-color', agent.color);
 
-  const pastel = pastelColor(agent.color, 0.55);
-  const pastelLight = pastelColor(agent.color, 0.75);
-
-  // 컬러 파티션 벽
+  // 상단 악센트 라인 + 앰비언트 글로우
   cell.innerHTML = `
-    <div class="cubicle-wall-top" style="background:${pastel};"></div>
-    <div class="cubicle-wall-left" style="background:${pastel};"></div>
-    <div class="cubicle-wall-right" style="background:${pastel};"></div>
-    <div class="cubicle-floor" style="background:${pastelLight};"></div>
+    <div class="cubicle-accent" style="background:${agent.color};"></div>
+    <div class="cubicle-ambient" style="background:${agent.color};"></div>
   `;
 
-  // 에이전트 요소
   const el = document.createElement('div');
   el.className = `agent ${agent.isMain ? 'main' : ''}`;
   el.id = `agent-${agent.id}`;
@@ -914,31 +1022,32 @@ function createAgentEl(agent) {
   const code = 'const r=await fetch()\nif(ok){return data}\nvalidate()\ncheck(token)\nrender(<App/>)\noptimize()';
   const charWrap = document.createElement('div');
   charWrap.className = 'character';
-  const canvas = createPixelCharacter(agent.skin, agent.hair, agent.shirt, agent.isMain ? 6 : 5);
+  const canvas = createPixelCharacter(agent.skin, agent.hair, agent.shirt, agent.isMain ? 5 : 4);
   canvas.className = 'pixel-char idle';
   canvas.id = `char-${agent.id}`;
   charWrap.appendChild(canvas);
 
   const bubbleColor = agent.color;
   el.innerHTML = `<div class="speech-bubble" id="bubble-${agent.id}" style="border-color:${bubbleColor};">대기 중</div>`;
-  // speech-bubble::after 색상은 CSS 변수로
   el.querySelector('.speech-bubble').style.setProperty('--bubble-color', bubbleColor);
   el.appendChild(charWrap);
 
   const rest = document.createElement('div');
   rest.className = 'desk-area';
+  const glowColor = agent.isMain ? 'rgba(233,69,96,0.3)' : 'rgba(63,185,80,0.3)';
   rest.innerHTML = `
     <div class="desk">
-      <div class="monitor">
+      <div class="monitor" style="--glow-color:${glowColor};">
         <div class="monitor-screen" id="screen-${agent.id}">${code}</div>
+        <div class="monitor-glow"></div>
       </div>
       <div class="keyboard" id="kbd-${agent.id}"></div>
       <div class="coffee-cup"><div class="steam" id="steam-${agent.id}"></div></div>
     </div>
     <div class="chair"></div>
-    <div class="role-label" style="color:${agent.color};border-color:${pastel}">${agent.name}</div>
+    <div class="role-label" style="color:${agent.color};border-color:color-mix(in srgb, ${agent.color} 30%, transparent)">${agent.name}</div>
     <div class="status-indicator">
-      <div class="status-dot" id="dot-${agent.id}" style="background:#aaa"></div>
+      <div class="status-dot" id="dot-${agent.id}" style="background:#484f58"></div>
       <span class="status-text" id="status-${agent.id}">IDLE</span>
     </div>`;
   el.appendChild(rest);
@@ -1012,6 +1121,9 @@ function setAgentVisual(agentId, state, message) {
   const steam = document.getElementById(`steam-${agentId}`);
   if (!dot) return;
 
+  // 큐비클 셀에 working 클래스 토글
+  const cell = el?.closest('.cubicle-cell');
+
   if (state === 'working') {
     dot.style.background = agent.color;
     statusText.textContent = 'WORKING'; statusText.style.color = agent.color;
@@ -1021,6 +1133,7 @@ function setAgentVisual(agentId, state, message) {
     charCanvas.className = 'pixel-char working';
     if (kbd) kbd.classList.add('typing');
     if (steam) steam.classList.add('visible');
+    if (cell) cell.classList.add('working');
     if (message) bubble.textContent = message;
   } else if (state === 'done') {
     dot.style.background = '#6bcb77';
@@ -1031,16 +1144,18 @@ function setAgentVisual(agentId, state, message) {
     charCanvas.className = 'pixel-char idle';
     if (kbd) kbd.classList.remove('typing');
     if (steam) steam.classList.remove('visible');
+    if (cell) cell.classList.remove('working');
     if (message) bubble.textContent = message;
   } else {
-    dot.style.background = '#555';
-    statusText.textContent = 'IDLE'; statusText.style.color = '#aaa';
+    dot.style.background = '#484f58';
+    statusText.textContent = 'IDLE'; statusText.style.color = '#6e7681';
     screen.classList.remove('active');
     if (line) line.classList.remove('active');
     el.classList.remove('speaking');
     charCanvas.className = 'pixel-char idle';
     if (kbd) kbd.classList.remove('typing');
     if (steam) steam.classList.remove('visible');
+    if (cell) cell.classList.remove('working');
   }
 }
 
@@ -1133,8 +1248,11 @@ function matchSubagent(event) {
 // Hook 이벤트 처리
 // ══════════════════════════════════════
 function handleHookEvent(event) {
-  const sid = event.session_id || 'default';
-  const session = getOrCreateSession(sid, event.project_name, event.project_path);
+  const hookSid = event.session_id || 'default';
+  // Interactive 세션에 연결 시도
+  const linked = findLinkedManualSession(hookSid);
+  const sid = linked ? linked.id : hookSid;
+  const session = linked || getOrCreateSession(hookSid, event.project_name, event.project_path);
   const isActive = sid === activeSessionId;
 
   // Hook 이벤트가 들어오면 Claude가 실행 중인 것
@@ -1186,8 +1304,15 @@ function handleHookEvent(event) {
       if (toolName === 'Agent') {
         const subId = matchSubagent(toolInput);
         if (subId) {
-          updateAgentState(sid, subId, 'done', '작업 완료');
-          if (isActive) emitParticles(subId, 'main', '#6bcb77');
+          // 백그라운드 에이전트는 PostToolUse가 즉시 오므로, 응답에 "background" 포함 시 working 유지
+          const outputStr = typeof toolOutput === 'string' ? toolOutput : JSON.stringify(toolOutput || '');
+          const isBackground = outputStr.includes('background') || outputStr.includes('Async');
+          if (isBackground) {
+            updateAgentState(sid, subId, 'working', '리뷰 진행 중...');
+          } else {
+            updateAgentState(sid, subId, 'done', '작업 완료');
+            if (isActive) emitParticles(subId, 'main', '#6bcb77');
+          }
         }
       } else {
         updateAgentState(sid, 'main', 'working', `${toolName} 완료`);
@@ -1242,13 +1367,29 @@ function handleHookEvent(event) {
 // 트랜스크립트 이벤트 처리
 // ══════════════════════════════════════
 function handleTranscriptEvent(data) {
-  const sid = data.session_id || 'default';
-  const session = getOrCreateSession(sid);
+  const hookSid = data.session_id || 'default';
+  const linked = findLinkedManualSession(hookSid);
+  const sid = linked ? linked.id : hookSid;
+  const session = linked || getOrCreateSession(hookSid);
 
   switch (data.entry_type) {
-    case 'user':
-      addLog(sid, '👤 User', '#ffd93d', '', null, data.text, 'user-input');
+    case 'user': {
+      // 백그라운드 에이전트 완료 감지 (task-notification)
+      const text = data.text || '';
+      if (text.includes('task-notification') && text.includes('completed')) {
+        const summaryMatch = text.match(/<summary>(.*?)<\/summary>/);
+        if (summaryMatch) {
+          const subId = matchSubagent({ description: summaryMatch[1] });
+          if (subId) {
+            updateAgentState(sid, subId, 'done', '리뷰 완료!');
+            const a = AGENTS.find(a => a.id === subId);
+            addLog(sid, a?.name || subId, a?.color || '#6bcb77', '리뷰 완료', null);
+          }
+        }
+      }
+      addLog(sid, '👤 User', '#ffd93d', '', null, text, 'user-input');
       break;
+    }
     case 'assistant':
       for (const part of data.parts || []) {
         if (part.type === 'text') {
@@ -1288,20 +1429,32 @@ function connectWS() {
     try {
       const data = JSON.parse(e.data);
       switch (data.type) {
-        case 'init':
+        case 'init': {
+          // 서버에 없는 외부 세션만 제거, 기존 세션은 로그 보존하며 업데이트
+          const serverIds = new Set((data.sessions || []).map(s => s.id));
+          const toRemove = [];
+          for (const [id, s] of sessions) {
+            if (!s.isManual && !serverIds.has(id)) toRemove.push(id);
+          }
+          toRemove.forEach(id => removeSession(id));
           for (const s of data.sessions || []) {
             getOrCreateSession(s.id, s.name, s.path);
           }
           break;
+        }
         case 'hook':
           handleHookEvent(data);
           break;
         case 'transcript':
           handleTranscriptEvent(data);
           break;
-        case 'session_new':
-          getOrCreateSession(data.session.id, data.session.name, data.session.path);
+        case 'session_new': {
+          const linked = findLinkedManualSession(data.session.id);
+          if (!linked) {
+            getOrCreateSession(data.session.id, data.session.name, data.session.path);
+          }
           break;
+        }
         case 'session_removed':
           removeSession(data.session_id);
           break;
@@ -1352,15 +1505,9 @@ function renderOffice() {
     } else if (subIdx < subs.length) {
       grid.appendChild(createAgentEl(subs[subIdx++]));
     } else {
-      // 빈 큐비클 (가구만 있는 빈 자리)
+      // 빈 큐비클
       const empty = document.createElement('div');
-      empty.className = 'cubicle-cell';
-      empty.innerHTML = `
-        <div class="cubicle-wall-top" style="background:#ccc;"></div>
-        <div class="cubicle-wall-left" style="background:#ccc;"></div>
-        <div class="cubicle-wall-right" style="background:#ccc;"></div>
-        <div class="cubicle-floor" style="background:#ddd;"></div>
-      `;
+      empty.className = 'cubicle-cell empty-cell';
       grid.appendChild(empty);
     }
   }
@@ -1382,10 +1529,65 @@ async function init() {
   connectWS();
 }
 
+// 브라우저 종료/새로고침 시 WebSocket 즉시 닫기 → 서버가 PTY 정리
+window.addEventListener('beforeunload', () => {
+  if (ws) ws.close();
+});
+
 window.addEventListener('resize', () => {
   requestAnimationFrame(() => drawConnections());
   const activeSession = sessions.get(activeSessionId);
   if (activeSession?.fitAddon) activeSession.fitAddon.fit();
+});
+
+// ── 파일 드래그앤드롭 → 터미널에 경로 삽입 ──
+// ── 파일 드래그앤드롭 → 터미널에 경로 삽입 ──
+function shellQuote(path) {
+  return "'" + path.replace(/'/g, "'\\''") + "'";
+}
+
+const termPanel = document.querySelector('.right-panel');
+termPanel.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  const session = sessions.get(activeSessionId);
+  if (session?.term && session.isManual) {
+    termPanel.classList.add('drop-highlight');
+  }
+});
+termPanel.addEventListener('dragleave', (e) => {
+  if (!termPanel.contains(e.relatedTarget)) {
+    termPanel.classList.remove('drop-highlight');
+  }
+});
+termPanel.addEventListener('drop', (e) => {
+  e.preventDefault();
+  termPanel.classList.remove('drop-highlight');
+  const session = sessions.get(activeSessionId);
+  if (!session?.term || !session.isManual) return;
+
+  // macOS Finder 드래그 시 file:// URI에서 경로 추출
+  const uri = e.dataTransfer.getData('text/uri-list');
+  if (uri) {
+    const paths = uri.split('\n')
+      .filter(l => l.startsWith('file://'))
+      .map(l => {
+        try { return decodeURIComponent(new URL(l.trim()).pathname); }
+        catch { return null; }
+      })
+      .filter(Boolean);
+    if (paths.length > 0) {
+      const input = paths.map(shellQuote).join(' ');
+      session.term.paste(input);
+      return;
+    }
+  }
+
+  // fallback: File 객체에서 이름만 삽입 (전체 경로는 브라우저 보안 제한)
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    const names = Array.from(files).map(f => shellQuote(f.name)).join(' ');
+    session.term.paste(names);
+  }
 });
 
 // ══════════════════════════════════════
