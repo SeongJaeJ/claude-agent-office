@@ -5,6 +5,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { homedir } from 'os';
 import { WebSocketServer } from 'ws';
+import pty from 'node-pty';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.AGENT_OFFICE_PORT || 7777;
@@ -275,6 +276,21 @@ const server = createServer((req, res) => {
     return;
   }
 
+  // node_modules 정적 파일 (xterm)
+  if (req.url.startsWith('/node_modules/')) {
+    const nmPath = join(__dirname, req.url);
+    const ext = req.url.split('.').pop();
+    const mimeTypes = { js: 'application/javascript', css: 'text/css', mjs: 'application/javascript' };
+    try {
+      const content = readFileSync(nmPath);
+      res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+      res.end(content);
+    } catch {
+      res.writeHead(404); res.end('Not Found');
+    }
+    return;
+  }
+
   // 정적 파일 서빙
   let filePath = req.url === '/' ? '/index.html' : req.url;
   const fullPath = join(__dirname, 'public', filePath);
@@ -301,6 +317,46 @@ const server = createServer((req, res) => {
 const wss = new WebSocketServer({ server });
 const clients = new Set();
 
+// ── PTY 터미널 관리 ──
+const terminals = new Map(); // id → { pty, clients: Set<ws> }
+
+function createTerminal(id, cwd, cols = 120, rows = 30) {
+  if (terminals.has(id)) return terminals.get(id);
+
+  const shell = process.env.SHELL || '/bin/zsh';
+  // Claude Code 중첩 세션 방지: CLAUDECODE 환경변수 제거
+  const ptyEnv = { ...process.env, TERM: 'xterm-256color' };
+  delete ptyEnv.CLAUDECODE;
+  const ptyProcess = pty.spawn(shell, [], {
+    name: 'xterm-256color',
+    cols, rows,
+    cwd: cwd || homedir(),
+    env: ptyEnv,
+  });
+
+  const term = { pty: ptyProcess, clients: new Set(), id };
+
+  ptyProcess.onData((data) => {
+    const msg = JSON.stringify({ type: 'terminal_output', id, data });
+    for (const ws of term.clients) {
+      if (ws.readyState === 1) ws.send(msg);
+    }
+  });
+
+  ptyProcess.onExit(({ exitCode }) => {
+    console.log(`[TERMINAL] 종료: ${id} (code: ${exitCode})`);
+    const msg = JSON.stringify({ type: 'terminal_exit', id, exitCode });
+    for (const ws of term.clients) {
+      if (ws.readyState === 1) ws.send(msg);
+    }
+    terminals.delete(id);
+  });
+
+  terminals.set(id, term);
+  console.log(`[TERMINAL] 생성: ${id} (cwd: ${cwd || homedir()})`);
+  return term;
+}
+
 wss.on('connection', (ws) => {
   clients.add(ws);
   console.log(`[WS] 연결 (총 ${clients.size})`);
@@ -312,8 +368,47 @@ wss.on('connection', (ws) => {
     timestamp: Date.now(),
   }));
 
+  ws.on('message', (raw) => {
+    try {
+      const msg = JSON.parse(raw.toString());
+      switch (msg.type) {
+        case 'terminal_create': {
+          const term = createTerminal(msg.id, msg.cwd, msg.cols, msg.rows);
+          term.clients.add(ws);
+          ws.send(JSON.stringify({ type: 'terminal_ready', id: msg.id }));
+          break;
+        }
+        case 'terminal_input': {
+          const term = terminals.get(msg.id);
+          if (term) term.pty.write(msg.data);
+          break;
+        }
+        case 'terminal_resize': {
+          const term = terminals.get(msg.id);
+          if (term) term.pty.resize(msg.cols, msg.rows);
+          break;
+        }
+        case 'terminal_close': {
+          const term = terminals.get(msg.id);
+          if (term) {
+            term.clients.delete(ws);
+            if (term.clients.size === 0) {
+              term.pty.kill();
+              terminals.delete(msg.id);
+            }
+          }
+          break;
+        }
+      }
+    } catch {}
+  });
+
   ws.on('close', () => {
     clients.delete(ws);
+    // 연결된 터미널에서 클라이언트 제거
+    for (const [id, term] of terminals) {
+      term.clients.delete(ws);
+    }
     console.log(`[WS] 해제 (총 ${clients.size})`);
   });
 });
