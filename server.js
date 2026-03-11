@@ -81,9 +81,13 @@ const sessions = new Map();
 function getOrCreateSession(event) {
   const id = event.session_id || 'default';
   if (!sessions.has(id)) {
+    // project_name 없는 이벤트로 새 세션 생성 방지 (Unknown 쓰레기 세션 차단)
+    if (!event.project_name) {
+      return null;
+    }
     const session = {
       id,
-      name: event.project_name || 'Unknown',
+      name: event.project_name,
       path: event.project_path || '',
       lastActivity: Date.now(),
     };
@@ -99,9 +103,9 @@ function getOrCreateSession(event) {
   return session;
 }
 
-// 비활성 세션 정리 (30분)
+// 비활성 세션 정리 (5분)
 setInterval(() => {
-  const cutoff = Date.now() - 30 * 60 * 1000;
+  const cutoff = Date.now() - 5 * 60 * 1000;
   for (const [id, session] of sessions) {
     if (session.lastActivity < cutoff) {
       sessions.delete(id);
@@ -142,6 +146,9 @@ function startWatchingTranscript(sessionId, transcriptPath) {
             const entry = JSON.parse(line);
             const parsed = parseTranscriptEntry(entry);
             if (parsed) {
+              // 트랜스크립트 활동 시 세션 lastActivity 갱신
+              const sess = sessions.get(sessionId);
+              if (sess) sess.lastActivity = Date.now();
               broadcast({
                 type: 'transcript',
                 session_id: sessionId,
@@ -254,6 +261,12 @@ const server = createServer((req, res) => {
       try {
         const event = JSON.parse(body);
         const session = getOrCreateSession(event);
+        if (!session) {
+          // project_name 없는 이벤트 → 세션 생성 안 함, 무시
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end('{"ok":true,"skipped":true}');
+          return;
+        }
         console.log(`[HOOK] [${session.name}] ${event.hook_event_name} → ${event.tool_name || ''}`);
         // 트랜스크립트 경로가 있으면 감시 시작
         if (event.transcript_path) {
@@ -334,7 +347,7 @@ function createTerminal(id, cwd, cols = 120, rows = 30) {
     env: ptyEnv,
   });
 
-  const term = { pty: ptyProcess, clients: new Set(), id };
+  const term = { pty: ptyProcess, clients: new Set(), id, owner: null };
 
   ptyProcess.onData((data) => {
     const msg = JSON.stringify({ type: 'terminal_output', id, data });
@@ -375,6 +388,7 @@ wss.on('connection', (ws) => {
         case 'terminal_create': {
           const term = createTerminal(msg.id, msg.cwd, msg.cols, msg.rows);
           term.clients.add(ws);
+          term.owner = ws; // 이 터미널을 만든 클라이언트 기록
           ws.send(JSON.stringify({ type: 'terminal_ready', id: msg.id }));
           break;
         }
@@ -394,7 +408,7 @@ wss.on('connection', (ws) => {
             term.clients.delete(ws);
             if (term.clients.size === 0) {
               term.pty.kill();
-              terminals.delete(msg.id);
+              // terminals.delete는 onExit 콜백에서 처리
             }
           }
           break;
@@ -405,9 +419,14 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     clients.delete(ws);
-    // 연결된 터미널에서 클라이언트 제거
+    // 이 클라이언트가 owner인 PTY만 종료 (모니터링 세션은 유지)
     for (const [id, term] of terminals) {
       term.clients.delete(ws);
+      if (term.owner === ws) {
+        console.log(`[TERMINAL] owner 연결 해제, 종료: ${id}`);
+        term.pty.kill();
+        // terminals.delete는 onExit 콜백에서 처리
+      }
     }
     console.log(`[WS] 해제 (총 ${clients.size})`);
   });
@@ -428,3 +447,30 @@ server.listen(PORT, () => {
   console.log('  ╚══════════════════════════════════════╝');
   console.log('');
 });
+
+// ── Graceful Shutdown ──
+function shutdown() {
+  console.log('\n[SHUTDOWN] 정리 시작...');
+  // PTY 프로세스 전부 종료
+  for (const [id, term] of terminals) {
+    console.log(`[SHUTDOWN] PTY 종료: ${id}`);
+    term.pty.kill();
+  }
+  terminals.clear();
+  // 트랜스크립트 워쳐 정리
+  for (const [id] of watchers) {
+    stopWatchingTranscript(id);
+  }
+  // WebSocket 클라이언트 종료
+  for (const ws of clients) {
+    ws.close();
+  }
+  server.close(() => {
+    console.log('[SHUTDOWN] 서버 종료 완료');
+    process.exit(0);
+  });
+  // 3초 안에 안 끝나면 강제 종료
+  setTimeout(() => process.exit(1), 3000);
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
