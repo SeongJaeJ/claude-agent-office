@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Office - Claude Code Live</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a1a2e;
+    font-family: 'Press Start 2P', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    image-rendering: pixelated;
+    overflow: hidden;
+  }
+
+  /* ── 헤더 ── */
+  .header {
+    background: linear-gradient(90deg, #16213e, #0f3460);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 4px solid #e94560;
+    z-index: 10;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .header h1 { color: #e94560; font-size: 20px; letter-spacing: 2px; }
+  .header .subtitle { color: #8899aa; font-size: 12px; }
+  .ws-status {
+    font-size: 12px; padding: 6px 14px; border: 2px solid;
+  }
+  .ws-status.connected { color: #6bcb77; border-color: #6bcb77; }
+  .ws-status.disconnected { color: #e94560; border-color: #e94560; animation: blink-badge 1s infinite; }
+  @keyframes blink-badge { 50% { opacity: 0.4; } }
+
+  /* ── 탭 바 ── */
+  .tab-bar {
+    display: flex;
+    background: #0d1117;
+    border-bottom: 2px solid #333;
+    padding: 0 8px;
+    gap: 2px;
+    overflow-x: auto;
+    min-height: 36px;
+    align-items: stretch;
+  }
+  .tab-bar::-webkit-scrollbar { height: 3px; }
+  .tab-bar::-webkit-scrollbar-thumb { background: #333; }
+  .tab {
+    padding: 8px 16px;
+    font-size: 10px;
+    color: #666;
+    border: 1px solid transparent;
+    border-bottom: none;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.2s, background 0.2s;
+  }
+  .tab:hover { color: #aaa; background: rgba(255,255,255,0.03); }
+  .tab.active {
+    color: #e94560;
+    border-color: #333;
+    border-bottom-color: #1a1a2e;
+    background: #1a1a2e;
+  }
+  .tab-dot {
+    width: 8px; height: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: #555;
+  }
+  .tab.active .tab-dot { background: #e94560; }
+  .tab.has-activity .tab-dot {
+    background: #6bcb77;
+    animation: status-pulse 1.5s infinite;
+  }
+  .tab-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #333;
+  }
+
+  /* ── 메인 영역 ── */
+  .main-area { flex: 1; display: flex; overflow: hidden; }
+
+  /* ── 오피스 (CSS Grid) ── */
+  .office {
+    flex: 1; position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: 1fr;
+    background: #2a2a4a;
+    overflow: hidden; min-width: 0;
+  }
+  .floor {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(45deg, #252545 25%, transparent 25%),
+      linear-gradient(-45deg, #252545 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #252545 75%),
+      linear-gradient(-45deg, transparent 75%, #252545 75%);
+    background-size: 48px 48px;
+    background-position: 0 0, 0 24px, 24px -24px, -24px 0;
+    opacity: 0.3; pointer-events: none; z-index: 0;
+  }
+
+  /* ── 에이전트 ── */
+  .agent {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    position: relative;
+    transition: transform 0.2s;
+    cursor: pointer; z-index: 5;
+  }
+  .agent:hover { transform: scale(1.1) translateY(-4px); z-index: 20; }
+  .grid-empty {}
+
+  .character { position: relative; margin-bottom: -12px; z-index: 5; }
+  .pixel-char { display: block; image-rendering: pixelated; }
+  .pixel-char.idle { animation: char-idle 1.5s ease-in-out infinite; }
+  .pixel-char.working { animation: char-type 0.3s steps(2) infinite; }
+  @keyframes char-idle { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+  @keyframes char-type { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+
+  .desk {
+    width: 140px; height: 44px;
+    background: #8B6914; border: 3px solid #6B4F0A;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .desk::before {
+    content: ''; position: absolute; bottom: -10px; left: 8px;
+    width: 10px; height: 10px; background: #6B4F0A;
+    box-shadow: 108px 0 0 #6B4F0A;
+  }
+  .agent.main .desk {
+    width: 160px; height: 48px;
+    background: #5a2a6a; border-color: #7b4a8a;
+  }
+  .agent.main .desk::before {
+    background: #7b4a8a; box-shadow: 128px 0 0 #7b4a8a;
+  }
+  .monitor {
+    width: 52px; height: 40px;
+    background: #111; border: 3px solid #555; overflow: hidden;
+  }
+  .agent.main .monitor { width: 64px; height: 48px; border-color: #e94560; }
+  .monitor-screen {
+    width: 100%; height: 100%; padding: 4px;
+    font-size: 4px; color: #555; line-height: 1.6; overflow: hidden;
+  }
+  .monitor-screen.active { color: #0f0; animation: code-scroll 2s linear infinite; }
+  .agent.main .monitor-screen.active { color: #e94560; }
+  @keyframes code-scroll { 0%{transform:translateY(0)} 100%{transform:translateY(-20px)} }
+
+  .role-label {
+    font-size: 13px; padding: 5px 12px;
+    white-space: nowrap; margin-top: 8px;
+    text-align: center; border: 2px solid;
+    background: rgba(0,0,0,0.5);
+  }
+  .status-indicator {
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; white-space: nowrap; margin-top: 4px;
+  }
+  .status-dot {
+    width: 10px; height: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+    animation: status-pulse 1.5s infinite;
+  }
+  @keyframes status-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+  .status-text {
+    font-size: 12px; color: #aaa;
+    background: rgba(0,0,0,0.7); padding: 3px 8px;
+    border: 1px solid #444;
+  }
+  .speech-bubble {
+    background: #111; border: 2px solid #666;
+    padding: 8px 14px; font-size: 12px; color: #eee;
+    white-space: nowrap; opacity: 0;
+    transition: opacity 0.3s; pointer-events: none; z-index: 30;
+    margin-bottom: 4px; text-align: center;
+  }
+  .speech-bubble::after {
+    content: ''; display: block; margin: 4px auto 0;
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid #666;
+  }
+  .agent:hover .speech-bubble,
+  .agent.speaking .speech-bubble { opacity: 1; }
+
+  /* ── 연결선 ── */
+  .connections { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+  .connection-line {
+    stroke-width: 2; opacity: 0.25;
+    stroke-dasharray: 8 6; animation: dash-flow 1.5s linear infinite;
+  }
+  .connection-line.active {
+    stroke-width: 3; opacity: 0.85;
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+  @keyframes dash-flow { to{stroke-dashoffset:-14} }
+
+  /* ── 파티클 ── */
+  .particle {
+    position: absolute; width: 6px; height: 6px;
+    background: #e94560; pointer-events: none; z-index: 15; opacity: 0;
+  }
+
+  /* ── 로그 패널 ── */
+  .log-sidebar {
+    width: 500px; min-width: 400px;
+    background: #0a0a16;
+    border-left: 3px solid #333;
+    display: flex; flex-direction: column;
+  }
+  .log-header {
+    padding: 12px 16px; font-size: 13px; color: #e94560;
+    border-bottom: 2px solid #222;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .log-count { font-size: 10px; color: #666; }
+  .log-content {
+    flex: 1; overflow-y: auto;
+    padding: 10px 14px; font-size: 11px; line-height: 1.8;
+  }
+  .log-content::-webkit-scrollbar { width: 5px; }
+  .log-content::-webkit-scrollbar-thumb { background: #333; }
+  .log-entry {
+    opacity: 0; animation: log-appear 0.3s forwards;
+    padding: 6px 0; border-bottom: 1px solid #1a1a2a;
+  }
+  .log-entry.no-anim { animation: none; opacity: 1; }
+  @keyframes log-appear { to{opacity:1} }
+  .log-entry-header {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .log-time { color: #444; font-size: 9px; }
+  .log-agent { font-weight: bold; }
+  .log-msg { color: #999; }
+  .log-tool { color: #4d96ff; font-size: 10px; }
+  .log-detail {
+    margin-top: 4px; padding: 6px 10px;
+    background: #111; border-left: 3px solid #333;
+    font-family: 'Courier New', monospace;
+    font-size: 10px; color: #8b9dc3; line-height: 1.6;
+    white-space: pre-wrap; word-break: break-all;
+    max-height: 300px; overflow-y: auto;
+  }
+  .log-detail::-webkit-scrollbar { width: 3px; }
+  .log-detail::-webkit-scrollbar-thumb { background: #333; }
+  .log-detail.output {
+    border-left-color: #6bcb77; color: #7ab87a;
+  }
+  .log-detail.error {
+    border-left-color: #e94560; color: #e07070;
+  }
+  .log-detail.user-input {
+    border-left-color: #ffd93d; color: #d4b84a;
+  }
+  .log-detail.assistant-text {
+    border-left-color: #4d96ff; color: #a8c8ee;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px; line-height: 1.8;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .log-entry-role {
+    font-size: 9px; padding: 2px 6px;
+    border: 1px solid; display: inline-block; margin-right: 6px;
+  }
+  .log-entry-role.user { color: #ffd93d; border-color: #ffd93d55; }
+  .log-entry-role.assistant { color: #4d96ff; border-color: #4d96ff55; }
+  .log-entry-role.tool-result { color: #6bcb77; border-color: #6bcb7755; }
+
+  /* ── 통계 바 ── */
+  .stats-bar {
+    padding: 10px 16px; border-top: 2px solid #222;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+  }
+  .stat-item { text-align: center; }
+  .stat-value { font-size: 18px; color: #e94560; }
+  .stat-label { font-size: 8px; color: #555; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>AGENT OFFICE</h1>
+    <span class="subtitle">Live Dashboard</span>
+  </div>
+  <span class="ws-status disconnected" id="wsStatus">DISCONNECTED</span>
+</div>
+
+<div class="tab-bar" id="tabBar">
+  <div class="tab-empty">세션 대기 중...</div>
+</div>
+
+<div class="main-area">
+  <div class="office" id="office">
+    <div class="floor"></div>
+    <svg class="connections" id="connections"></svg>
+  </div>
+
+  <div class="log-sidebar">
+    <div class="log-header">
+      EVENT LOG
+      <span class="log-count" id="logCount">0 events</span>
+    </div>
+    <div class="log-content" id="logPanel"></div>
+    <div class="stats-bar">
+      <div class="stat-item">
+        <div class="stat-value" id="statTools">0</div>
+        <div class="stat-label">TOOLS</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="statAgents">0</div>
+        <div class="stat-label">AGENTS</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="statTime">0s</div>
+        <div class="stat-label">UPTIME</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// 픽셀 캐릭터 / 화분 생성
+// ══════════════════════════════════════
+function createPixelCharacter(skinColor, hairColor, shirtColor, scale = 6) {
+  const sprite = [
+    [0,0,0,1,1,1,1,0,0,0],[0,0,1,1,1,1,1,1,0,0],
+    [0,0,1,2,2,2,2,1,0,0],[0,0,2,2,2,2,2,2,0,0],
+    [0,0,2,4,2,2,4,2,0,0],[0,0,2,2,2,2,2,2,0,0],
+    [0,0,0,2,5,5,2,0,0,0],[0,0,0,0,2,2,0,0,0,0],
+    [0,0,3,3,3,3,3,3,0,0],[0,3,3,3,3,3,3,3,3,0],
+    [0,3,3,3,3,3,3,3,3,0],[0,0,3,3,3,3,3,3,0,0],
+    [0,0,0,2,0,0,2,0,0,0],[0,0,0,2,0,0,2,0,0,0],
+  ];
+  const colorMap = { 0:'transparent', 1:hairColor, 2:skinColor, 3:shirtColor, 4:'#111', 5:skinColor };
+  const canvas = document.createElement('canvas');
+  canvas.width = 10 * scale; canvas.height = 14 * scale;
+  canvas.style.imageRendering = 'pixelated';
+  const ctx = canvas.getContext('2d');
+  for (let y = 0; y < sprite.length; y++)
+    for (let x = 0; x < sprite[y].length; x++) {
+      const c = colorMap[sprite[y][x]];
+      if (c !== 'transparent') { ctx.fillStyle = c; ctx.fillRect(x*scale, y*scale, scale, scale); }
+    }
+  return canvas;
+}
+
+// ══════════════════════════════════════
+// 에이전트 설정
+// ══════════════════════════════════════
+const COLOR_PALETTE = [
+  '#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c084fc','#ff922b',
+  '#f06595','#20c997','#339af0','#845ef7','#e8590c','#0ca678',
+];
+const SKIN_TONES = ['#d4a574','#e8c4a0','#e0b090','#c49060','#f0d0b0'];
+const HAIR_COLORS = ['#333','#8B0000','#654321','#2c2c2c','#1a1a3e','#4a2a6a','#8B4513'];
+
+let AGENTS = [];
+
+function buildAgents(config) {
+  AGENTS = [];
+  AGENTS.push({
+    id: 'main', name: 'Main Agent',
+    role: config.main?.role || '시니어 개발자',
+    color: '#e94560', skin: '#d4a574', hair: '#333', shirt: '#e94560',
+    isMain: true, keywords: ['main','메인','시니어'],
+  });
+
+  const allSubs = [...(config.subagents || []).map(a => ({ ...a, type: 'sub' }))];
+  allSubs.forEach((agent, i) => {
+    const color = COLOR_PALETTE[i % COLOR_PALETTE.length];
+    const id = agent.role.toLowerCase()
+      .replace(/\s*\(.+?\)\s*/g, ' ').trim()
+      .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const roleWords = agent.role.toLowerCase().split(/[\s/()]+/).filter(w => w.length > 1);
+    const descWords = (agent.description || '').toLowerCase()
+      .split(/[,·\s/()]+/).filter(w => w.length > 2).slice(0, 8);
+    AGENTS.push({
+      id: id || `agent-${i}`, name: agent.role.replace(/\s*\(.+?\)/, '').trim(),
+      role: agent.role, color,
+      skin: SKIN_TONES[i % SKIN_TONES.length],
+      hair: HAIR_COLORS[i % HAIR_COLORS.length],
+      shirt: color, isMain: false,
+      keywords: [...new Set([...roleWords, ...descWords])],
+    });
+  });
+}
+
+// ══════════════════════════════════════
+// 세션 관리
+// ══════════════════════════════════════
+const sessions = new Map();
+let activeSessionId = null;
+
+class Session {
+  constructor(id, name, path) {
+    this.id = id;
+    this.name = name || id;
+    this.path = path || '';
+    this.logs = [];
+    this.stats = { tools: 0, agents: 0, startTime: Date.now() };
+    this.agentStates = {};
+    this.activeAgents = new Set();
+  }
+}
+
+function getOrCreateSession(sessionId, name, path) {
+  if (!sessions.has(sessionId)) {
+    sessions.set(sessionId, new Session(sessionId, name, path));
+    // 첫 세션이면 자동 활성화
+    if (!activeSessionId) switchSession(sessionId);
+    else renderTabs();
+  }
+  const s = sessions.get(sessionId);
+  if (name && name !== s.name) { s.name = name; renderTabs(); }
+  if (path) s.path = path;
+  return s;
+}
+
+function switchSession(id) {
+  activeSessionId = id;
+  renderTabs();
+  renderActiveSession();
+}
+
+function removeSession(id) {
+  sessions.delete(id);
+  if (activeSessionId === id) {
+    const first = sessions.keys().next().value;
+    activeSessionId = first || null;
+  }
+  renderTabs();
+  if (activeSessionId) renderActiveSession();
+}
+
+// ── 탭 렌더링 ──
+function renderTabs() {
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = '';
+  if (sessions.size === 0) {
+    bar.innerHTML = '<div class="tab-empty">세션 대기 중...</div>';
+    return;
+  }
+  for (const [id, session] of sessions) {
+    const tab = document.createElement('div');
+    const isActive = id === activeSessionId;
+    const hasActivity = session.activeAgents.size > 0;
+    tab.className = `tab${isActive ? ' active' : ''}${hasActivity ? ' has-activity' : ''}`;
+    tab.innerHTML = `<span class="tab-dot"></span><span class="tab-name">${session.name}</span>`;
+    tab.onclick = () => switchSession(id);
+    bar.appendChild(tab);
+  }
+}
+
+// ── 활성 세션 렌더링 ──
+function renderActiveSession() {
+  const session = sessions.get(activeSessionId);
+  if (!session) return;
+
+  // 에이전트 상태 복원
+  for (const agent of AGENTS) {
+    const saved = session.agentStates[agent.id];
+    setAgentVisual(agent.id, saved?.state || 'idle', saved?.message);
+  }
+
+  // 로그 복원
+  const panel = document.getElementById('logPanel');
+  panel.innerHTML = '';
+  for (const log of session.logs) appendLogEntry(log, true);
+  panel.scrollTop = panel.scrollHeight;
+  document.getElementById('logCount').textContent = `${session.logs.length} events`;
+
+  // 통계 복원
+  document.getElementById('statTools').textContent = session.stats.tools;
+  document.getElementById('statAgents').textContent = session.stats.agents;
+
+  requestAnimationFrame(() => drawConnections());
+}
+
+// ══════════════════════════════════════
+// 에이전트 DOM
+// ══════════════════════════════════════
+function getAgentCenter(agentId) {
+  const el = document.getElementById(`agent-${agentId}`);
+  const office = document.getElementById('office');
+  if (!el || !office) return null;
+  const er = el.getBoundingClientRect();
+  const or = office.getBoundingClientRect();
+  return { x: er.left - or.left + er.width / 2, y: er.top - or.top + er.height / 2 };
+}
+
+function createAgentEl(agent) {
+  const el = document.createElement('div');
+  el.className = `agent ${agent.isMain ? 'main' : ''}`;
+  el.id = `agent-${agent.id}`;
+  const code = 'const r=await fetch()\nif(ok){return data}\nvalidate()\ncheck(token)\nrender(<App/>)\noptimize()';
+  const charWrap = document.createElement('div');
+  charWrap.className = 'character';
+  const canvas = createPixelCharacter(agent.skin, agent.hair, agent.shirt, agent.isMain ? 7 : 6);
+  canvas.className = 'pixel-char idle';
+  canvas.id = `char-${agent.id}`;
+  charWrap.appendChild(canvas);
+
+  // 순서: 말풍선 → 캐릭터 → 책상 → 명찰 → 상태
+  el.innerHTML = `<div class="speech-bubble" id="bubble-${agent.id}">대기 중</div>`;
+  el.appendChild(charWrap);
+
+  const rest = document.createElement('div');
+  rest.innerHTML = `
+    <div class="desk"><div class="monitor">
+      <div class="monitor-screen" id="screen-${agent.id}">${code}</div>
+    </div></div>
+    <div class="role-label" style="color:${agent.color};border-color:${agent.color}55">${agent.role}</div>
+    <div class="status-indicator">
+      <div class="status-dot" id="dot-${agent.id}" style="background:#555"></div>
+      <span class="status-text" id="status-${agent.id}">IDLE</span>
+    </div>`;
+  while (rest.firstChild) el.appendChild(rest.firstChild);
+  return el;
+}
+
+function drawConnections() {
+  const svg = document.getElementById('connections');
+  const office = document.getElementById('office');
+  const or = office.getBoundingClientRect();
+  svg.setAttribute('viewBox', `0 0 ${or.width} ${or.height}`);
+  svg.innerHTML = '';
+  const mc = getAgentCenter('main');
+  if (!mc) return;
+  for (const agent of AGENTS) {
+    if (agent.isMain) continue;
+    const ac = getAgentCenter(agent.id);
+    if (!ac) continue;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', mc.x); line.setAttribute('y1', mc.y);
+    line.setAttribute('x2', ac.x); line.setAttribute('y2', ac.y);
+    line.classList.add('connection-line');
+    line.setAttribute('stroke', agent.color);
+    line.id = `line-${agent.id}`;
+    svg.appendChild(line);
+  }
+}
+
+// ── 에이전트 상태 (세션 기반) ──
+function updateAgentState(sessionId, agentId, state, message) {
+  const session = sessions.get(sessionId);
+  if (!session) return;
+  session.agentStates[agentId] = { state, message: message || '' };
+  if (state === 'working') session.activeAgents.add(agentId);
+  else session.activeAgents.delete(agentId);
+
+  if (sessionId === activeSessionId) setAgentVisual(agentId, state, message);
+  renderTabs();
+
+  if (state === 'done') {
+    setTimeout(() => {
+      const s = sessions.get(sessionId);
+      if (s && !s.activeAgents.has(agentId)) updateAgentState(sessionId, agentId, 'idle');
+    }, 5000);
+  }
+}
+
+// ── DOM만 업데이트 ──
+function setAgentVisual(agentId, state, message) {
+  const agent = AGENTS.find(a => a.id === agentId);
+  if (!agent) return;
+  const dot = document.getElementById(`dot-${agentId}`);
+  const statusText = document.getElementById(`status-${agentId}`);
+  const screen = document.getElementById(`screen-${agentId}`);
+  const bubble = document.getElementById(`bubble-${agentId}`);
+  const line = document.getElementById(`line-${agentId}`);
+  const el = document.getElementById(`agent-${agentId}`);
+  const charCanvas = document.getElementById(`char-${agentId}`);
+  if (!dot) return;
+
+  if (state === 'working') {
+    dot.style.background = agent.color;
+    statusText.textContent = 'WORKING'; statusText.style.color = agent.color;
+    screen.classList.add('active');
+    if (line) line.classList.add('active');
+    el.classList.add('speaking');
+    charCanvas.className = 'pixel-char working';
+    if (message) bubble.textContent = message;
+  } else if (state === 'done') {
+    dot.style.background = '#6bcb77';
+    statusText.textContent = 'DONE'; statusText.style.color = '#6bcb77';
+    screen.classList.remove('active');
+    if (line) line.classList.remove('active');
+    el.classList.add('speaking');
+    charCanvas.className = 'pixel-char idle';
+    if (message) bubble.textContent = message;
+  } else {
+    dot.style.background = '#555';
+    statusText.textContent = 'IDLE'; statusText.style.color = '#aaa';
+    screen.classList.remove('active');
+    if (line) line.classList.remove('active');
+    el.classList.remove('speaking');
+    charCanvas.className = 'pixel-char idle';
+  }
+}
+
+// ══════════════════════════════════════
+// 파티클
+// ══════════════════════════════════════
+function emitParticles(fromId, toId, color) {
+  const fc = getAgentCenter(fromId);
+  const tc = getAgentCenter(toId);
+  if (!fc || !tc) return;
+  for (let i = 0; i < 4; i++) {
+    setTimeout(() => {
+      const p = document.createElement('div');
+      p.className = 'particle'; p.style.background = color;
+      p.style.left = fc.x+'px'; p.style.top = fc.y+'px';
+      document.getElementById('office').appendChild(p);
+      p.animate([
+        { left: fc.x+'px', top: fc.y+'px', opacity: 1, transform: 'scale(1)' },
+        { left: tc.x+'px', top: tc.y+'px', opacity: 0, transform: 'scale(0.2)' }
+      ], { duration: 600+Math.random()*200, fill: 'forwards' }).onfinish = () => p.remove();
+    }, i * 80);
+  }
+}
+
+// ══════════════════════════════════════
+// 로그 (세션 기반)
+// ══════════════════════════════════════
+function addLog(sessionId, agentName, color, message, toolName, detail, detailType) {
+  const session = sessions.get(sessionId);
+  if (!session) return;
+  const time = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+  const log = { time, agentName, color, message, toolName, detail, detailType };
+  session.logs.push(log);
+  if (sessionId === activeSessionId) {
+    appendLogEntry(log, false);
+    document.getElementById('logCount').textContent = `${session.logs.length} events`;
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function appendLogEntry(log, noAnim) {
+  const panel = document.getElementById('logPanel');
+  const entry = document.createElement('div');
+  entry.className = `log-entry${noAnim ? ' no-anim' : ''}`;
+  const toolTag = log.toolName ? `<span class="log-tool">[${log.toolName}]</span>` : '';
+  let html = `<div class="log-entry-header">
+    <span class="log-time">${log.time}</span>
+    <span class="log-agent" style="color:${log.color}">${log.agentName}</span>
+    ${toolTag}
+    <span class="log-msg">${escapeHtml(log.message)}</span>
+  </div>`;
+  if (log.detail) {
+    const cls = log.detailType === 'output' ? ' output' : log.detailType === 'error' ? ' error' : '';
+    html += `<div class="log-detail${cls}">${escapeHtml(log.detail)}</div>`;
+  }
+  entry.innerHTML = html;
+  panel.appendChild(entry);
+  if (!noAnim) panel.scrollTop = panel.scrollHeight;
+}
+
+// ══════════════════════════════════════
+// 서브에이전트 매칭
+// ══════════════════════════════════════
+function matchSubagent(event) {
+  const desc = (event.description || event.prompt || '').toLowerCase();
+  let bestMatch = null, bestScore = 0;
+  for (const agent of AGENTS) {
+    if (agent.isMain) continue;
+    const score = agent.keywords.reduce((s, kw) => s + (desc.includes(kw) ? 1 : 0), 0);
+    if (score > bestScore) { bestScore = score; bestMatch = agent.id; }
+  }
+  return bestScore > 0 ? bestMatch : null;
+}
+
+// ══════════════════════════════════════
+// Hook 이벤트 처리 (세션 라우팅)
+// ══════════════════════════════════════
+function handleHookEvent(event) {
+  const sid = event.session_id || 'default';
+  const session = getOrCreateSession(sid, event.project_name, event.project_path);
+  const isActive = sid === activeSessionId;
+
+  const eventName = event.hook_event_name;
+  const toolName = event.tool_name || '';
+  const toolInput = event.tool_input || {};
+
+  switch (eventName) {
+    case 'SessionStart':
+      addLog(sid, 'System', '#e94560', `세션 시작 (${event.source || 'startup'})`, null);
+      updateAgentState(sid, 'main', 'working', '세션 시작됨');
+      session.stats.startTime = Date.now();
+      break;
+
+    case 'PreToolUse':
+      session.stats.tools++;
+      if (isActive) document.getElementById('statTools').textContent = session.stats.tools;
+
+      if (toolName === 'Agent') {
+        const subId = matchSubagent(toolInput);
+        if (subId) {
+          session.stats.agents++;
+          if (isActive) document.getElementById('statAgents').textContent = session.stats.agents;
+          updateAgentState(sid, subId, 'working', toolInput.description || '작업 시작...');
+          if (isActive) emitParticles('main', subId, AGENTS.find(a=>a.id===subId)?.color || '#e94560');
+          const a = AGENTS.find(a=>a.id===subId);
+          addLog(sid, a?.name||subId, a?.color||'#fff', toolInput.description||'서브에이전트 시작', 'Agent', toolInput.prompt?.substring(0, 300));
+        } else {
+          addLog(sid, 'Main Agent', '#e94560', toolInput.description||'Agent 호출', 'Agent', toolInput.prompt?.substring(0, 300));
+        }
+      } else {
+        updateAgentState(sid, 'main', 'working', `${toolName} 실행 중...`);
+        let summary = '';
+        let detail = '';
+        switch (toolName) {
+          case 'Bash':
+            summary = toolInput.description || toolInput.command?.substring(0, 80) || 'Bash';
+            detail = toolInput.command || '';
+            break;
+          case 'Read':
+            summary = toolInput.file_path?.split('/').pop() || 'Read';
+            detail = toolInput.file_path || '';
+            break;
+          case 'Edit':
+            summary = toolInput.file_path?.split('/').pop() || 'Edit';
+            detail = toolInput.file_path || '';
+            break;
+          case 'Write':
+            summary = toolInput.file_path?.split('/').pop() || 'Write';
+            detail = toolInput.file_path || '';
+            break;
+          case 'Grep':
+            summary = `패턴: ${toolInput.pattern || ''}`;
+            detail = toolInput.pattern ? `pattern: ${toolInput.pattern}${toolInput.path ? '\npath: '+toolInput.path : ''}` : '';
+            break;
+          case 'Glob':
+            summary = toolInput.pattern || 'Glob';
+            detail = toolInput.pattern || '';
+            break;
+          case 'WebSearch':
+            summary = toolInput.query?.substring(0, 80) || 'WebSearch';
+            detail = toolInput.query || '';
+            break;
+          case 'WebFetch':
+            summary = toolInput.url?.substring(0, 80) || 'WebFetch';
+            detail = toolInput.url || '';
+            break;
+          default:
+            summary = toolName;
+        }
+        addLog(sid, 'Main Agent', '#e94560', summary, toolName, detail);
+      }
+      break;
+
+    case 'PostToolUse': {
+      const toolOutput = event.tool_response || event.tool_output || '';
+      if (toolName === 'Agent') {
+        // Agent 완료 시 서브에이전트 매칭
+        const subId = matchSubagent(toolInput);
+        if (subId) {
+          updateAgentState(sid, subId, 'done', '작업 완료');
+          if (isActive) emitParticles(subId, 'main', '#6bcb77');
+        }
+      } else {
+        updateAgentState(sid, 'main', 'working', `${toolName} 완료`);
+      }
+      // 출력이 있으면 결과 로그 추가
+      if (toolOutput) {
+        const outputStr = typeof toolOutput === 'string' ? toolOutput : JSON.stringify(toolOutput, null, 2);
+        if (outputStr.trim()) {
+          const isError = event.tool_error || outputStr.includes('Error') || outputStr.includes('error:');
+          addLog(sid, 'Main Agent', '#e94560', `${toolName} 완료`, null, outputStr, isError ? 'error' : 'output');
+        }
+      }
+      break;
+    }
+
+    case 'SubagentStart': {
+      const subId = matchSubagent({ description: event.agent_type || '' });
+      if (subId) {
+        updateAgentState(sid, subId, 'working', `${event.agent_type} 시작`);
+        if (isActive) emitParticles('main', subId, AGENTS.find(a=>a.id===subId)?.color || '#e94560');
+      }
+      break;
+    }
+
+    case 'SubagentStop': {
+      const subId = matchSubagent({ description: event.agent_type || '' });
+      if (subId) {
+        updateAgentState(sid, subId, 'done', '리뷰 완료!');
+        if (isActive) emitParticles(subId, 'main', '#6bcb77');
+        const a = AGENTS.find(a=>a.id===subId);
+        addLog(sid, a?.name||subId, a?.color||'#6bcb77', '리뷰 완료', null);
+      }
+      break;
+    }
+
+    case 'Stop':
+      addLog(sid, 'Main Agent', '#6bcb77', '응답 완료', null);
+      setTimeout(() => {
+        if (session.activeAgents.size === 0) updateAgentState(sid, 'main', 'done', '작업 완료');
+      }, 500);
+      break;
+
+    case 'Notification':
+      addLog(sid, 'System', '#ffd93d', event.notification_message || 'Notification', null);
+      break;
+
+    default:
+      addLog(sid, 'System', '#888', eventName, toolName || null);
+  }
+}
+
+// ══════════════════════════════════════
+// 트랜스크립트 이벤트 처리
+// ══════════════════════════════════════
+function handleTranscriptEvent(data) {
+  const sid = data.session_id || 'default';
+  const session = getOrCreateSession(sid);
+
+  switch (data.entry_type) {
+    case 'user':
+      addLog(sid, '👤 User', '#ffd93d', '', null, data.text, 'user-input');
+      break;
+
+    case 'assistant':
+      for (const part of data.parts || []) {
+        if (part.type === 'text') {
+          addLog(sid, '🤖 Claude', '#4d96ff', '', null, part.text, 'assistant-text');
+        }
+        // tool_use는 hook에서 이미 처리하므로 중복 방지
+      }
+      break;
+
+    case 'tool_result':
+      if (data.text) {
+        addLog(sid, 'Main Agent', '#e94560', '도구 결과', null, data.text, 'output');
+      }
+      break;
+  }
+}
+
+// ══════════════════════════════════════
+// WebSocket
+// ══════════════════════════════════════
+let ws;
+function connectWS() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${protocol}//${location.host}`);
+
+  ws.onopen = () => {
+    document.getElementById('wsStatus').textContent = 'CONNECTED';
+    document.getElementById('wsStatus').className = 'ws-status connected';
+  };
+
+  ws.onclose = () => {
+    document.getElementById('wsStatus').textContent = 'DISCONNECTED';
+    document.getElementById('wsStatus').className = 'ws-status disconnected';
+    setTimeout(connectWS, 2000);
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      switch (data.type) {
+        case 'init':
+          // 서버에 이미 존재하는 세션 복원
+          for (const s of data.sessions || []) {
+            getOrCreateSession(s.id, s.name, s.path);
+          }
+          break;
+        case 'hook':
+          handleHookEvent(data);
+          break;
+        case 'transcript':
+          handleTranscriptEvent(data);
+          break;
+        case 'session_new':
+          getOrCreateSession(data.session.id, data.session.name, data.session.path);
+          break;
+        case 'session_removed':
+          removeSession(data.session_id);
+          break;
+      }
+    } catch {}
+  };
+}
+
+// ── 통계 타이머 ──
+setInterval(() => {
+  if (!activeSessionId) return;
+  const session = sessions.get(activeSessionId);
+  if (!session) return;
+  const elapsed = Math.floor((Date.now() - session.stats.startTime) / 1000);
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  document.getElementById('statTime').textContent = m > 0 ? `${m}m${s}s` : `${s}s`;
+}, 1000);
+
+// ══════════════════════════════════════
+// 오피스 그리드 렌더링
+// ══════════════════════════════════════
+function renderOffice() {
+  const office = document.getElementById('office');
+  office.querySelectorAll('.agent, .grid-empty').forEach(e => e.remove());
+
+  const cols = 3;
+  const subs = AGENTS.filter(a => !a.isMain);
+  const main = AGENTS.find(a => a.isMain);
+  const totalCells = Math.max(subs.length + 1, 9);
+  const rows = Math.ceil(totalCells / cols);
+  office.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+  const centerIdx = Math.floor(rows / 2) * cols + Math.floor(cols / 2);
+  let subIdx = 0;
+
+  for (let i = 0; i < rows * cols; i++) {
+    if (i === centerIdx) {
+      office.appendChild(createAgentEl(main));
+    } else if (subIdx < subs.length) {
+      office.appendChild(createAgentEl(subs[subIdx++]));
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'grid-empty';
+      office.appendChild(empty);
+    }
+  }
+
+  requestAnimationFrame(() => drawConnections());
+}
+
+// ══════════════════════════════════════
+// 초기화
+// ══════════════════════════════════════
+async function init() {
+  try {
+    const res = await fetch('/api/agents');
+    const config = await res.json();
+    buildAgents(config);
+  } catch {
+    buildAgents({ main: { role: '시니어 개발자' }, subagents: [] });
+  }
+  renderOffice();
+  connectWS();
+}
+
+window.addEventListener('resize', () => requestAnimationFrame(() => drawConnections()));
+init();
+</script>
+</body>
+</html>

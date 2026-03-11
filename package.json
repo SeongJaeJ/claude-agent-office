@@ -1,0 +1,22 @@
+{
+  "name": "agent-office",
+  "version": "1.0.0",
+  "description": "Claude Code Agent Office - 실시간 에이전트 시각화 대시보드",
+  "type": "module",
+  "bin": {
+    "agent-office": "./bin/agent-office.js",
+    "agent-office-hook": "./bin/hook.js"
+  },
+  "scripts": {
+    "start": "node bin/agent-office.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["claude", "agent", "dashboard", "visualization"],
+  "license": "MIT"
+}
