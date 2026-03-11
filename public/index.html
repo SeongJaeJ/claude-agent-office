@@ -256,7 +256,7 @@
     font-family: 'Courier New', monospace;
     font-size: 10px; color: #8b9dc3; line-height: 1.6;
     white-space: pre-wrap; word-break: break-all;
-    max-height: 300px; overflow-y: auto;
+    max-height: 150px; overflow-y: auto;
   }
   .log-detail::-webkit-scrollbar { width: 3px; }
   .log-detail::-webkit-scrollbar-thumb { background: #333; }
@@ -269,12 +269,43 @@
   .log-detail.user-input {
     border-left-color: #ffd93d; color: #d4b84a;
   }
-  .log-detail.assistant-text {
-    border-left-color: #4d96ff; color: #a8c8ee;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 10px; line-height: 1.8;
+  .log-chat {
+    margin-top: 6px; padding: 10px 14px;
+    background: #0f1a2e; border: 1px solid #1e3a5f;
+    border-radius: 4px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px; color: #c8d6e5; line-height: 1.7;
     white-space: pre-wrap; word-break: break-word;
   }
+  .log-chat code {
+    background: #1a2744; padding: 1px 5px;
+    border-radius: 3px; font-family: 'Courier New', monospace;
+    font-size: 12px; color: #7ec8e3;
+  }
+  .log-chat pre {
+    background: #0a1020; padding: 8px 10px; margin: 6px 0;
+    border-radius: 3px; overflow-x: auto;
+    font-family: 'Courier New', monospace; font-size: 11px;
+    color: #8b9dc3; line-height: 1.5;
+  }
+  .log-chat h1, .log-chat h2, .log-chat h3 {
+    color: #e8e8e8; margin: 8px 0 4px;
+    font-family: 'Press Start 2P', monospace;
+  }
+  .log-chat h1 { font-size: 13px; }
+  .log-chat h2 { font-size: 12px; }
+  .log-chat h3 { font-size: 11px; }
+  .log-chat strong { color: #e8e8e8; }
+  .log-chat table { border-collapse: collapse; margin: 6px 0; width: 100%; }
+  .log-chat th, .log-chat td {
+    border: 1px solid #1e3a5f; padding: 4px 8px;
+    font-size: 11px; text-align: left;
+  }
+  .log-chat th { background: #1a2744; color: #7ec8e3; }
+  .log-chat ul, .log-chat ol { padding-left: 20px; margin: 4px 0; }
+  .log-chat li { margin: 2px 0; }
+  .log-chat hr { border: none; border-top: 1px solid #1e3a5f; margin: 8px 0; }
+  .log-chat a { color: #4d96ff; }
   .log-entry-role {
     font-size: 9px; padding: 2px 6px;
     border: 1px solid; display: inline-block; margin-right: 6px;
@@ -658,6 +689,44 @@ function escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+function simpleMarkdown(text) {
+  let html = escapeHtml(text);
+  // 코드 블록 (```...```)
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+  // 인라인 코드
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // 헤딩
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // 볼드
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // 구분선
+  html = html.replace(/^---$/gm, '<hr>');
+  // 리스트
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
+  // 테이블 (간단 처리)
+  html = html.replace(/^\|(.+)\|$/gm, (match, content) => {
+    const cells = content.split('|').map(c => c.trim());
+    if (cells.every(c => /^[-:]+$/.test(c))) return ''; // 구분줄 제거
+    const tag = cells.some(c => /^[-:]+$/.test(c)) ? 'th' : 'td';
+    return '<tr>' + cells.map(c => `<${tag}>${c}</${tag}>`).join('') + '</tr>';
+  });
+  html = html.replace(/(<tr>[\s\S]*?<\/tr>)/g, '<table>$1</table>');
+  // 연속 li를 ul로 감싸기
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+  // 줄바꿈
+  html = html.replace(/\n/g, '<br>');
+  // 정리
+  html = html.replace(/<br><h/g, '<h').replace(/<\/h(\d)><br>/g, '</h$1>');
+  html = html.replace(/<br><pre>/g, '<pre>').replace(/<\/pre><br>/g, '</pre>');
+  html = html.replace(/<br><ul>/g, '<ul>').replace(/<\/ul><br>/g, '</ul>');
+  html = html.replace(/<br><hr>/g, '<hr>').replace(/<hr><br>/g, '<hr>');
+  html = html.replace(/<br><table>/g, '<table>').replace(/<\/table><br>/g, '</table>');
+  return html;
+}
+
 function appendLogEntry(log, noAnim) {
   const panel = document.getElementById('logPanel');
   const entry = document.createElement('div');
@@ -670,8 +739,13 @@ function appendLogEntry(log, noAnim) {
     <span class="log-msg">${escapeHtml(log.message)}</span>
   </div>`;
   if (log.detail) {
-    const cls = log.detailType === 'output' ? ' output' : log.detailType === 'error' ? ' error' : '';
-    html += `<div class="log-detail${cls}">${escapeHtml(log.detail)}</div>`;
+    if (log.detailType === 'assistant-text') {
+      // Claude 응답은 마크다운으로 렌더링
+      html += `<div class="log-chat">${simpleMarkdown(log.detail)}</div>`;
+    } else {
+      const cls = log.detailType === 'output' ? ' output' : log.detailType === 'error' ? ' error' : '';
+      html += `<div class="log-detail${cls}">${escapeHtml(log.detail)}</div>`;
+    }
   }
   entry.innerHTML = html;
   panel.appendChild(entry);
