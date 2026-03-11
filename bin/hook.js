@@ -12,10 +12,13 @@ process.stdin.on('data', chunk => { data += chunk; });
 process.stdin.on('end', async () => {
   try {
     const event = JSON.parse(data);
-    const projectPath = process.cwd();
-    event.project_path = projectPath;
-    event.project_name = basename(projectPath);
-    event.session_id = createHash('md5').update(projectPath).digest('hex').slice(0, 8);
+    const projectPath = event.cwd || process.cwd();
+    if (!event.project_path) event.project_path = projectPath;
+    if (!event.project_name) event.project_name = basename(projectPath);
+    // Claude Code가 제공하는 session_id 우선 사용, 없으면 경로 해시 fallback
+    if (!event.session_id) {
+      event.session_id = createHash('md5').update(projectPath).digest('hex').slice(0, 8);
+    }
 
     await fetch(`http://localhost:${PORT}/hooks`, {
       method: 'POST',

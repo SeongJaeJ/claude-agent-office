@@ -52,9 +52,7 @@ function setup() {
       matcher: '',
       hooks: [{
         type: 'command',
-        command: event === 'Stop'
-          ? `echo '{"hook_event_name":"Stop"}' | ${HOOK_MARKER}`
-          : HOOK_MARKER,
+        command: HOOK_MARKER,
         timeout: 3,
       }],
     });
