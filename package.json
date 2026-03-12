@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node bin/agent-office.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "postinstall": "node -e \"const{readdirSync,chmodSync}=require('fs');const{join}=require('path');const d=join(__dirname,'node_modules','node-pty','prebuilds');try{readdirSync(d).forEach(p=>{const h=join(d,p,'spawn-helper');try{chmodSync(h,0o755)}catch{}})}catch{}\""
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
