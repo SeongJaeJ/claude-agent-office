@@ -484,9 +484,9 @@ const server = createServer((req, res) => {
           startWatchingTranscript(session.id, event.transcript_path);
         }
         broadcast({
+          ...event,
           type: 'hook',
           session_id: session.id,
-          ...event,
           timestamp: Date.now(),
         });
         res.writeHead(200, { 'Content-Type': 'application/json' });

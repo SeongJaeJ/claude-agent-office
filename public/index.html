@@ -100,23 +100,34 @@
   }
   .tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
   .tab.active {
-    color: var(--accent-primary);
-    border-color: var(--border-accent);
+    color: #1a1a2e;
+    border-color: rgba(255,255,255,0.3);
     border-bottom-color: var(--bg-deep);
-    background: var(--bg-deep);
+    background: #e8e8e8;
   }
-  .tab-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.1);
-    background: #444;
+  .tab.active .tab-name { color: #1a1a2e; font-weight: 700; }
+  .tab.active .tab-type { color: #555; border-color: #999; }
+  /* 비활성 탭에서 작업 중 — 노란 배경 */
+  .tab.has-activity:not(.active) {
+    background: #3d3200;
+    border-color: #ffd93d;
+    color: #ffd93d;
   }
-  .tab.active .tab-dot { background: var(--accent-primary); box-shadow: 0 0 6px var(--accent-glow); }
-  .tab.has-activity .tab-dot {
-    background: var(--accent-green);
-    box-shadow: 0 0 6px rgba(74,222,128,0.5);
-    animation: status-pulse 1.5s infinite;
+  .tab.has-activity:not(.active) .tab-name { color: #ffd93d; }
+  .tab.has-activity:not(.active) .tab-type { color: #ffd93d; border-color: rgba(255,217,61,0.4); }
+  /* 비활성 탭 작업 완료 알람 — 녹색 펄스 */
+  .tab.alarm:not(.active) {
+    background: #0d2818;
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+    box-shadow: 0 0 8px rgba(74,222,128,0.3);
+    animation: tab-alarm-pulse 1.2s ease-in-out infinite;
   }
+  @keyframes tab-alarm-pulse {
+    0%, 100% { background: #0d2818; box-shadow: 0 0 8px rgba(74,222,128,0.3); }
+    50% { background: #174a2a; box-shadow: 0 0 14px rgba(74,222,128,0.5); }
+  }
+  .tab.alarm:not(.active) .tab-name { color: var(--accent-green); }
   .tab-type {
     font-size: 10px; padding: 1px 5px;
     border: 1px solid; border-radius: 3px;
@@ -124,8 +135,8 @@
   }
   .tab-type.interactive { color: var(--accent-green); border-color: rgba(74,222,128,0.3); }
   .tab-type.monitoring { color: var(--text-muted); border-color: rgba(100,116,139,0.3); }
-  .tab.active .tab-type.interactive { color: var(--accent-green); border-color: rgba(74,222,128,0.5); }
-  .tab.active .tab-type.monitoring { color: #aaa; border-color: rgba(170,170,170,0.4); }
+  .tab.active .tab-type.interactive { color: #2d7a4f; border-color: #2d7a4f; }
+  .tab.active .tab-type.monitoring { color: #555; border-color: #999; }
   .tab-empty {
     flex: 1; display: flex; align-items: center; justify-content: center;
     font-size: 11px; color: #333;
@@ -338,7 +349,7 @@
   }
 
   .character {
-    position: relative; margin-bottom: -8px; z-index: 5;
+    position: relative; margin-bottom: -8px; z-index: 1;
     filter: drop-shadow(0 3px 6px rgba(0,0,0,0.5));
   }
   .pixel-char { display: block; image-rendering: pixelated; }
@@ -349,7 +360,7 @@
 
   /* ── 책상 ── */
   .desk-area {
-    position: relative;
+    position: relative; z-index: 2;
     display: flex; flex-direction: column; align-items: center;
   }
   .desk {
@@ -1200,6 +1211,7 @@ class Session {
     this.claudeDetected = false;
     this.linkedHookSessionId = null;
     this.idleTimers = {};
+    this.alarm = false;
     // 탭별 독립 오피스 뷰
     this.officeEl = null;       // 오피스 DOM 컨테이너
     this.agentElements = {};    // agentId → DOM refs
@@ -1252,6 +1264,7 @@ function getOrCreateSession(sessionId, name, path) {
 
 function switchSession(id) {
   activeSessionId = id;
+  clearTabAlarm(id);
   // 모든 세션 오피스 레이어 숨기기
   for (const [, s] of sessions) {
     if (s.officeEl) s.officeEl.style.display = 'none';
@@ -1397,11 +1410,12 @@ function renderTabs() {
     const tab = document.createElement('div');
     const isActive = id === activeSessionId;
     const hasActivity = session.activeAgents.size > 0;
-    tab.className = `tab${isActive ? ' active' : ''}${hasActivity ? ' has-activity' : ''}`;
+    tab.className = `tab${isActive ? ' active' : ''}${session.alarm ? ' alarm' : hasActivity ? ' has-activity' : ''}`;
+    tab.dataset.sessionId = id;
     const typeClass = session.isManual ? 'interactive' : 'monitoring';
     const typeIcon = session.isManual ? '▶' : '◉';
     const typeLabel = session.isManual ? 'Interactive' : 'Monitoring';
-    tab.innerHTML = `<span class="tab-dot"></span><span class="tab-type ${typeClass}">${typeIcon} ${typeLabel}</span><span class="tab-name">${session.name}</span>`;
+    tab.innerHTML = `<span class="tab-type ${typeClass}">${typeIcon} ${typeLabel}</span><span class="tab-name">${session.name}</span>`;
     if (session.isManual) {
       const closeBtn = document.createElement('span');
       closeBtn.className = 'tab-close';
@@ -1417,6 +1431,19 @@ function renderTabs() {
   newBtn.textContent = '+ New';
   newBtn.onclick = () => createManualTab();
   bar.appendChild(newBtn);
+}
+
+// ── 탭 완료 플래시 효과 ──
+function flashTabDone(sessionId) {
+  if (sessionId === activeSessionId) return;
+  const session = sessions.get(sessionId);
+  if (session) session.alarm = true;
+  renderTabs();
+}
+
+function clearTabAlarm(sessionId) {
+  const session = sessions.get(sessionId);
+  if (session) session.alarm = false;
 }
 
 // ── 활성 세션 렌더링 ──
@@ -1897,6 +1924,7 @@ function handleHookEvent(event) {
       addLog(sid, 'Main Agent', '#6bcb77', '응답 완료', null);
       setTimeout(() => {
         if (session.activeAgents.size === 0) updateAgentState(sid, 'main', 'done', '작업 완료');
+        flashTabDone(sid);
       }, 500);
       break;
 
