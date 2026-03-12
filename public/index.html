@@ -1437,13 +1437,19 @@ function renderTabs() {
 function flashTabDone(sessionId) {
   if (sessionId === activeSessionId) return;
   const session = sessions.get(sessionId);
-  if (session) session.alarm = true;
+  if (session) {
+    session.alarm = true;
+    session.activeAgents.clear();
+  }
   renderTabs();
 }
 
 function clearTabAlarm(sessionId) {
   const session = sessions.get(sessionId);
-  if (session) session.alarm = false;
+  if (session) {
+    session.alarm = false;
+    session.activeAgents.clear();
+  }
 }
 
 // ── 활성 세션 렌더링 ──
