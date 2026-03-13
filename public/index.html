@@ -1838,6 +1838,13 @@ function handleHookEvent(event) {
   const session = linked || getOrCreateSession(hookSid, event.project_name, event.project_path);
   const isActive = sid === activeSessionId;
 
+  // 프로젝트명이 있으면 세션 이름 업데이트 (Terminal → 프로젝트명)
+  if (event.project_name && session.name !== event.project_name) {
+    session.name = event.project_name;
+    if (event.project_path) session.path = event.project_path;
+    renderTabs();
+  }
+
   // Hook 이벤트가 들어오면 Claude가 실행 중인 것
   if (!session.claudeDetected) detectClaude(session);
 
@@ -1932,6 +1939,15 @@ function handleHookEvent(event) {
         if (session.activeAgents.size === 0) updateAgentState(sid, 'main', 'done', '작업 완료');
         flashTabDone(sid);
       }, 500);
+      // 훅 세션 링크 해제 → 다음 Claude 실행 시 재연결 가능
+      if (session.linkedHookSessionId) {
+        hookSessionLinks.delete(session.linkedHookSessionId);
+        session.linkedHookSessionId = null;
+      }
+      // hookSid로도 직접 링크되어 있을 수 있음
+      if (hookSessionLinks.has(hookSid)) {
+        hookSessionLinks.delete(hookSid);
+      }
       break;
 
     case 'Notification':
