@@ -19,6 +19,10 @@ process.stdin.on('end', async () => {
     if (!event.session_id) {
       event.session_id = createHash('md5').update(projectPath).digest('hex').slice(0, 8);
     }
+    // Agent Office 터미널에서 실행된 경우 마커 추가
+    if (process.env.AGENT_OFFICE_TERM_ID) {
+      event.agent_office_term_id = process.env.AGENT_OFFICE_TERM_ID;
+    }
 
     await fetch(`http://localhost:${PORT}/hooks`, {
       method: 'POST',

@@ -1222,12 +1222,23 @@ class Session {
 // 훅 세션 ID → Interactive 세션 ID 매핑
 const hookSessionLinks = new Map();
 
-function findLinkedManualSession(hookSessionId) {
+function findLinkedManualSession(hookSessionId, agentOfficeTermId) {
   // 이미 링크된 경우
   if (hookSessionLinks.has(hookSessionId)) {
     const manualId = hookSessionLinks.get(hookSessionId);
     if (sessions.has(manualId)) return sessions.get(manualId);
     hookSessionLinks.delete(hookSessionId);
+  }
+  // Agent Office 터미널 ID로 정확히 매칭 (가장 확실한 방법)
+  if (agentOfficeTermId) {
+    for (const [id, s] of sessions) {
+      if (s.isManual && s.termId === agentOfficeTermId && !s.linkedHookSessionId) {
+        hookSessionLinks.set(hookSessionId, id);
+        s.linkedHookSessionId = hookSessionId;
+        console.log(`[LINK] 터미널 ID로 매칭: ${hookSessionId} → ${id} (termId: ${agentOfficeTermId})`);
+        return s;
+      }
+    }
   }
   // Claude가 감지된 Interactive 세션 찾기
   for (const [id, s] of sessions) {
@@ -1832,8 +1843,13 @@ function removeDynamicAgent(agentId) {
 // ══════════════════════════════════════
 function handleHookEvent(event) {
   const hookSid = event.session_id || 'default';
-  // Interactive 세션에 연결 시도
-  const linked = findLinkedManualSession(hookSid);
+  // Interactive 세션에 연결 시도 (agent_office_term_id로 정확한 매칭)
+  const linked = findLinkedManualSession(hookSid, event.agent_office_term_id);
+  // Agent Office 터미널에서 온 이벤트인데 매칭 실패 시, 모니터링 탭 생성 방지
+  if (!linked && event.agent_office_term_id) {
+    console.log(`[HOOK] interactive 세션 매칭 실패, 모니터링 탭 생성 스킵 (termId: ${event.agent_office_term_id})`);
+    return;
+  }
   const sid = linked ? linked.id : hookSid;
   const session = linked || getOrCreateSession(hookSid, event.project_name, event.project_path);
   const isActive = sid === activeSessionId;

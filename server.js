@@ -162,6 +162,12 @@ function scanActiveTranscripts() {
 }
 
 function onSessionDiscovered(transcriptPath, meta) {
+  // Agent Office 터미널에서 실행 중인 세션이면 스킵 (중복 모니터링 탭 방지)
+  if (interactiveSessionIds.has(meta.sessionId)) {
+    console.log(`[SCANNER] interactive 세션 스킵: ${meta.projectName} (${meta.sessionId.slice(0, 8)})`);
+    return;
+  }
+
   // 훅으로 이미 등록된 세션이면 트랜스크립트 감시만 추가
   const existingSession = sessions.get(meta.sessionId);
   if (existingSession) {
@@ -242,6 +248,7 @@ function startSessionScanner() {
 
 // ── 세션 관리 ──
 const sessions = new Map();
+const interactiveSessionIds = new Set(); // Agent Office 터미널에서 실행된 Claude 세션 ID
 
 function getOrCreateSession(event) {
   const id = event.session_id || 'default';
@@ -277,8 +284,11 @@ function getOrCreateSession(event) {
     lastActivity: Date.now(),
   };
   sessions.set(id, session);
-  broadcast({ type: 'session_new', session });
-  console.log(`[SESSION] 새 세션: ${session.name} (${id})`);
+  // interactive 세션은 클라이언트에서 자체 관리하므로 broadcast 하지 않음
+  if (!interactiveSessionIds.has(id)) {
+    broadcast({ type: 'session_new', session });
+  }
+  console.log(`[SESSION] 새 세션: ${session.name} (${id})${interactiveSessionIds.has(id) ? ' (interactive)' : ''}`);
   return session;
 }
 
@@ -288,6 +298,7 @@ setInterval(() => {
   for (const [id, session] of sessions) {
     if (session.lastActivity < cutoff) {
       sessions.delete(id);
+      interactiveSessionIds.delete(id);
       stopWatchingTranscript(id);
       broadcast({ type: 'session_removed', session_id: id });
       console.log(`[SESSION] 정리: ${session.name} (${id})`);
@@ -457,10 +468,11 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // 세션 목록 API
+  // 세션 목록 API (interactive 세션 제외 — 클라이언트에서 자체 관리)
   if (req.method === 'GET' && req.url === '/api/sessions') {
+    const filtered = [...sessions.values()].filter(s => !interactiveSessionIds.has(s.id));
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify([...sessions.values()]));
+    res.end(JSON.stringify(filtered));
     return;
   }
 
@@ -478,7 +490,11 @@ const server = createServer((req, res) => {
           res.end('{"ok":true,"skipped":true}');
           return;
         }
-        console.log(`[HOOK] [${session.name}] ${event.hook_event_name} → ${event.tool_name || ''}`);
+        // Agent Office 터미널에서 온 훅이면 interactive로 마킹
+        if (event.agent_office_term_id) {
+          interactiveSessionIds.add(session.id);
+        }
+        console.log(`[HOOK] [${session.name}] ${event.hook_event_name} → ${event.tool_name || ''}${event.agent_office_term_id ? ' (interactive)' : ''}`);
         // 트랜스크립트 경로가 있으면 감시 시작
         if (event.transcript_path) {
           startWatchingTranscript(session.id, event.transcript_path);
@@ -586,7 +602,8 @@ function createTerminal(id, cwd, cols = 120, rows = 30) {
     ? (process.env.COMSPEC || 'cmd.exe')
     : (process.env.SHELL || '/bin/zsh');
   // Claude Code 중첩 세션 방지: CLAUDECODE 환경변수 제거
-  const ptyEnv = { ...process.env, TERM: 'xterm-256color' };
+  // Agent Office 터미널 마커: 훅/스캐너가 interactive 세션을 구분하도록
+  const ptyEnv = { ...process.env, TERM: 'xterm-256color', AGENT_OFFICE_TERM_ID: id };
   delete ptyEnv.CLAUDECODE;
   const ptyProcess = pty.spawn(shell, [], {
     name: 'xterm-256color',
@@ -622,10 +639,11 @@ wss.on('connection', (ws) => {
   clients.add(ws);
   console.log(`[WS] 연결 (총 ${clients.size})`);
 
-  // 현재 세션 목록 전송
+  // 현재 세션 목록 전송 (interactive 세션 제외)
+  const initSessions = [...sessions.values()].filter(s => !interactiveSessionIds.has(s.id));
   ws.send(JSON.stringify({
     type: 'init',
-    sessions: [...sessions.values()],
+    sessions: initSessions,
     timestamp: Date.now(),
   }));
 
