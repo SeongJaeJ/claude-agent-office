@@ -1,17 +1,18 @@
 import { createServer } from 'http';
-import { readFileSync, existsSync, watch, statSync, createReadStream, readdirSync, openSync, readSync, closeSync, writeFileSync as fsWriteFileSync, mkdirSync } from 'fs';
+import { readFileSync, existsSync, watch, statSync, createReadStream, writeFileSync as fsWriteFileSync, mkdirSync } from 'fs';
 import { createInterface } from 'readline';
 import { join, dirname, basename } from 'path';
-import { tmpdir } from 'os';
+import { tmpdir, homedir } from 'os';
 import { fileURLToPath } from 'url';
-import { homedir } from 'os';
 import { WebSocketServer } from 'ws';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import pty from 'node-pty';
+
+const execFileAsync = promisify(execFile);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.AGENT_OFFICE_PORT || 7777;
-const CLAUDE_DIR = join(homedir(), '.claude');
-const PROJECTS_DIR = join(CLAUDE_DIR, 'projects');
 
 // ── CLAUDE.md에서 에이전트 정의 파싱 ──
 function parseAgentSection(content) {
@@ -78,184 +79,215 @@ function loadAgentConfig() {
 
 const agentConfig = loadAgentConfig();
 
-// ── 세션 자동감지 (SessionScanner) ──
-// ~/.claude/projects/ 디렉토리의 .jsonl 파일을 감시하여 활성 Claude CLI 세션을 자동 발견
-const SCAN_INTERVAL = 5000;     // 5초마다 활성 세션 스캔
-const ACTIVE_THRESHOLD = 30000; // 30초 이내 파일 수정 = 활성 세션
-const discoveredSessions = new Map(); // transcriptPath → { sessionId, project, ... }
-const projectWatchers = new Map();    // projectDir → watcher
+// ── 프로세스 기반 세션 스캐너 ──
+// 1. ps로 Claude 프로세스 발견
+// 2. lsof로 열린 .jsonl 파일 → 세션 UUID 식별
+// 3. lsof -d cwd로 작업 디렉토리 → 탭 네이밍
+// 4. PTY 자손 여부 확인 → 인터랙티브 탭 연동
+const SCAN_INTERVAL = 5000;
+const knownPids = new Map(); // pid → { sessionId, cwd, name, transcriptPath, isInteractive }
 
-function parseTranscriptFirstEntry(filePath) {
-  // 파일의 첫 몇 줄을 읽어 세션 메타데이터 추출
-  try {
-    const fd = openSync(filePath, 'r');
-    const buf = Buffer.alloc(4096);
-    const bytesRead = readSync(fd, buf, 0, 4096, 0);
-    closeSync(fd);
-    const text = buf.toString('utf8', 0, bytesRead);
-    const lines = text.split('\n');
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const entry = JSON.parse(line);
-        if (entry.sessionId && entry.type === 'user') {
-          return {
-            sessionId: entry.sessionId,
-            cwd: entry.cwd || '',
-            gitBranch: entry.gitBranch || '',
-            version: entry.version || '',
-            projectName: entry.cwd ? basename(entry.cwd) : '',
-            projectPath: entry.cwd || '',
-          };
-        }
-      } catch {}
-    }
-  } catch {}
-  return null;
+function normalizePath(p) {
+  return (p || '').toLowerCase().replace(/\\/g, '/').replace(/\/+$/, '');
 }
 
-function scanActiveTranscripts() {
-  if (!existsSync(PROJECTS_DIR)) return;
+async function scanClaudeProcesses() {
   try {
-    const projectDirs = readdirSync(PROJECTS_DIR, { withFileTypes: true })
-      .filter(d => d.isDirectory());
+    // 1단계: 현재 사용자의 프로세스 트리 조회 (비동기, -u로 현재 사용자만)
+    const { stdout: psOutput } = await execFileAsync('ps', ['-xo', 'pid=,ppid=,command='], {
+      timeout: 3000, maxBuffer: 10 * 1024 * 1024,
+    });
 
-    const now = Date.now();
-    const activeFiles = new Set();
+    const parentOf = new Map();
+    const claudePids = [];
 
-    for (const dir of projectDirs) {
-      const projPath = join(PROJECTS_DIR, dir.name);
-      try {
-        const files = readdirSync(projPath, { withFileTypes: true })
-          .filter(f => f.isFile() && f.name.endsWith('.jsonl'));
+    for (const line of psOutput.trim().split('\n')) {
+      const match = line.match(/^\s*(\d+)\s+(\d+)\s+(.*)$/);
+      if (!match) continue;
+      const pid = parseInt(match[1]);
+      const ppid = parseInt(match[2]);
+      const cmd = match[3];
+      parentOf.set(pid, ppid);
 
-        for (const file of files) {
-          const fullPath = join(projPath, file.name);
-          try {
-            const stat = statSync(fullPath);
-            const mtime = stat.mtimeMs;
-            if (now - mtime < ACTIVE_THRESHOLD) {
-              activeFiles.add(fullPath);
-              if (!discoveredSessions.has(fullPath)) {
-                const meta = parseTranscriptFirstEntry(fullPath);
-                if (meta) {
-                  discoveredSessions.set(fullPath, meta);
-                  onSessionDiscovered(fullPath, meta);
-                }
-              }
-            }
-          } catch {}
-        }
-      } catch {}
-    }
-
-    // 비활성 세션 제거
-    for (const [path, meta] of discoveredSessions) {
-      if (!activeFiles.has(path)) {
-        discoveredSessions.delete(path);
-        // 세션은 기존 5분 타이머로 자연 정리됨
+      // Claude Code 프로세스: 독립 실행 파일명이 claude인 경우만
+      if (/(?:\/|^|\s)claude(?:\s|$)/i.test(cmd)) {
+        claudePids.push(pid);
       }
     }
-  } catch (e) {
-    console.error('[SCANNER] 스캔 실패:', e.message);
-  }
-}
 
-function onSessionDiscovered(transcriptPath, meta) {
-  // Agent Office 터미널에서 실행 중인 세션이면 스킵 (중복 모니터링 탭 방지)
-  if (interactiveSessionIds.has(meta.sessionId)) {
-    console.log(`[SCANNER] interactive 세션 스킵: ${meta.projectName} (${meta.sessionId.slice(0, 8)})`);
-    return;
-  }
-  // 지연 처리: hook이 먼저 도착해서 interactiveSessionIds에 등록할 시간을 줌
-  // (scanner가 hook보다 먼저 .jsonl을 발견하는 race condition 방지)
-  setTimeout(() => {
-    if (interactiveSessionIds.has(meta.sessionId)) {
-      console.log(`[SCANNER] interactive 세션 스킵 (지연): ${meta.projectName} (${meta.sessionId.slice(0, 8)})`);
+    if (claudePids.length === 0) {
+      handleDisappearedProcesses(new Set());
       return;
     }
-    onSessionDiscoveredImmediate(transcriptPath, meta);
-  }, 3000);
-}
 
-function onSessionDiscoveredImmediate(transcriptPath, meta) {
-
-  // 훅으로 이미 등록된 세션이면 트랜스크립트 감시만 추가
-  const existingSession = sessions.get(meta.sessionId);
-  if (existingSession) {
-    startWatchingTranscript(meta.sessionId, transcriptPath);
-    console.log(`[SCANNER] 기존 세션에 트랜스크립트 연결: ${meta.projectName} (${meta.sessionId.slice(0, 8)})`);
-    return;
-  }
-
-  // 같은 프로젝트 경로로 이미 등록된 세션이 있으면 중복 생성 방지
-  const normPath = (meta.projectPath || '').toLowerCase().replace(/\\/g, '/');
-  for (const [sid, s] of sessions) {
-    const sPath = (s.path || '').toLowerCase().replace(/\\/g, '/');
-    if (sPath === normPath && sid !== meta.sessionId) {
-      startWatchingTranscript(sid, transcriptPath);
-      console.log(`[SCANNER] 동일 프로젝트 세션 병합: ${meta.projectName} (${sid.slice(0, 8)} ← ${meta.sessionId.slice(0, 8)})`);
-      return;
+    // 2단계: PTY 자손 여부 판별
+    const ptyPids = new Set();
+    for (const [, term] of terminals) {
+      if (term.pty.pid) ptyPids.add(term.pty.pid);
     }
-  }
 
-  // 새 세션 생성
-  const session = {
-    id: meta.sessionId,
-    name: meta.projectName || 'Unknown',
-    path: meta.projectPath || '',
-    lastActivity: Date.now(),
-    discoveredByScanner: true,
-  };
-  sessions.set(meta.sessionId, session);
-  startWatchingTranscript(meta.sessionId, transcriptPath);
-  broadcast({ type: 'session_new', session });
-  console.log(`[SCANNER] 새 세션 발견: ${session.name} (${meta.sessionId.slice(0, 8)}) branch:${meta.gitBranch}`);
-}
+    function isDescendantOfPty(pid) {
+      let cur = pid;
+      const visited = new Set();
+      while (cur && !visited.has(cur)) {
+        if (ptyPids.has(cur)) return true;
+        visited.add(cur);
+        cur = parentOf.get(cur);
+      }
+      return false;
+    }
 
-function watchProjectDirs() {
-  if (!existsSync(PROJECTS_DIR)) return;
-  try {
-    const dirs = readdirSync(PROJECTS_DIR, { withFileTypes: true })
-      .filter(d => d.isDirectory());
+    // 3단계: 신규 PID만 lsof 조회 (기존 PID는 캐시 사용)
+    const newPids = claudePids.filter(pid => !knownPids.has(pid));
+    const processInfo = new Map(); // pid → { cwd, jsonlFiles: [] }
 
-    for (const dir of dirs) {
-      const projPath = join(PROJECTS_DIR, dir.name);
-      if (projectWatchers.has(projPath)) continue;
+    // 기존 PID는 활성 여부만 확인, lsof 스킵
+    for (const pid of claudePids) {
+      if (knownPids.has(pid)) {
+        const known = knownPids.get(pid);
+        processInfo.set(pid, { cwd: known.cwd, jsonlFiles: [known.transcriptPath] });
+      }
+    }
+
+    // 신규 PID만 lsof 배치 호출
+    if (newPids.length > 0) {
+      const pidList = newPids.join(',');
+      let lsofOutput = '';
       try {
-        const watcher = watch(projPath, (eventType, filename) => {
-          if (filename && filename.endsWith('.jsonl')) {
-            const fullPath = join(projPath, filename);
-            if (!discoveredSessions.has(fullPath) && existsSync(fullPath)) {
-              // mtime 체크 — 최근 활성 파일만 등록
-              try {
-                const stat = statSync(fullPath);
-                if (Date.now() - stat.mtimeMs > ACTIVE_THRESHOLD) return;
-              } catch { return; }
-              const meta = parseTranscriptFirstEntry(fullPath);
-              if (meta) {
-                discoveredSessions.set(fullPath, meta);
-                onSessionDiscovered(fullPath, meta);
-              }
-            }
+        const { stdout } = await execFileAsync(
+          'lsof', ['-p', pidList, '-F', 'pfn'],
+          { timeout: 5000, maxBuffer: 5 * 1024 * 1024 },
+        );
+        lsofOutput = stdout;
+      } catch (e) {
+        if (e.stdout) lsofOutput = e.stdout;
+        else console.error('[SCANNER] lsof 실패:', e.message);
+      }
+
+      // lsof 출력 파싱: p<pid>, f<fd>, n<name>
+      let currentPid = null;
+      let currentFd = null;
+
+      for (const line of lsofOutput.split('\n')) {
+        if (line.startsWith('p')) {
+          currentPid = parseInt(line.slice(1));
+          if (!processInfo.has(currentPid)) {
+            processInfo.set(currentPid, { cwd: null, jsonlFiles: [] });
           }
-        });
-        projectWatchers.set(projPath, watcher);
-      } catch {}
+        } else if (line.startsWith('f')) {
+          currentFd = line.slice(1);
+        } else if (line.startsWith('n') && currentPid) {
+          const name = line.slice(1);
+          const info = processInfo.get(currentPid);
+          if (currentFd === 'cwd') {
+            info.cwd = name;
+          } else if (name.endsWith('.jsonl') && name.includes('.claude/projects/')) {
+            info.jsonlFiles.push(name);
+          }
+        }
+      }
     }
-  } catch {}
+
+    // 4단계: 세션 생성/업데이트
+    const activePids = new Set();
+
+    for (const pid of claudePids) {
+      const info = processInfo.get(pid);
+      if (!info || !info.cwd) continue;
+
+      // .jsonl 파일에서 세션 UUID 추출 (파일명이 UUID.jsonl)
+      const jsonlFile = info.jsonlFiles[0]; // 가장 첫 번째 .jsonl
+      if (!jsonlFile) continue;
+
+      const jsonlBasename = basename(jsonlFile, '.jsonl');
+      const sessionId = jsonlBasename; // UUID가 세션 ID
+      const projectName = basename(info.cwd);
+      const isInteractive = ptyPids.size > 0 && isDescendantOfPty(pid);
+
+      activePids.add(pid);
+
+      // 이미 추적 중인 프로세스
+      if (knownPids.has(pid)) {
+        const known = knownPids.get(pid);
+        // 세션 lastActivity 갱신
+        const session = sessions.get(known.sessionId);
+        if (session) session.lastActivity = Date.now();
+        continue;
+      }
+
+      // 신규 Claude 프로세스 발견
+      knownPids.set(pid, {
+        sessionId,
+        cwd: info.cwd,
+        name: projectName,
+        transcriptPath: jsonlFile,
+        isInteractive,
+      });
+
+      if (isInteractive) {
+        // 인터랙티브 세션: 클라이언트에서 자체 관리, 서버는 ID만 기록
+        interactiveSessionIds.add(sessionId);
+        console.log(`[SCANNER] interactive Claude 발견: ${projectName} (PID:${pid}, ${sessionId.slice(0, 8)})`);
+
+        // 이 세션이 이미 모니터링 탭으로 생성됐으면 제거
+        if (sessions.has(sessionId) && sessions.get(sessionId).discoveredByScanner) {
+          sessions.delete(sessionId);
+          stopWatchingTranscript(sessionId);
+          broadcast({ type: 'session_removed', session_id: sessionId });
+          console.log(`[SCANNER] 모니터링 탭 → interactive 전환: ${projectName}`);
+        }
+      } else {
+        // 외부 Claude: 모니터링 세션 생성
+        // 같은 cwd의 기존 세션이 있으면 합류 (Claude 재시작 시 UUID 변경 대응)
+        let targetSid = sessionId;
+        const normCwd = normalizePath(info.cwd);
+        for (const [sid, s] of sessions) {
+          if (sid !== sessionId && normalizePath(s.path) === normCwd) {
+            targetSid = sid;
+            s.lastActivity = Date.now();
+            s.name = projectName;
+            break;
+          }
+        }
+
+        if (!sessions.has(targetSid)) {
+          const session = {
+            id: targetSid,
+            name: projectName,
+            path: info.cwd,
+            lastActivity: Date.now(),
+            discoveredByScanner: true,
+          };
+          sessions.set(targetSid, session);
+          broadcast({ type: 'session_new', session });
+          console.log(`[SCANNER] 외부 Claude 발견: ${projectName} (PID:${pid}, ${sessionId.slice(0, 8)})`);
+        }
+        // 트랜스크립트 감시 시작 (새 .jsonl도 감시 등록)
+        startWatchingTranscript(targetSid, jsonlFile);
+      }
+    }
+
+    handleDisappearedProcesses(activePids);
+  } catch (e) {
+    console.error('[SCANNER] 프로세스 스캔 실패:', e.message);
+  }
+}
+
+function handleDisappearedProcesses(activePids) {
+  // 사라진 프로세스 정리
+  for (const [pid, info] of knownPids) {
+    if (!activePids.has(pid)) {
+      knownPids.delete(pid);
+      console.log(`[SCANNER] Claude 프로세스 종료: ${info.name} (PID:${pid})`);
+      // 세션은 5분 비활성 타이머로 자연 정리 (즉시 제거하지 않음 — 로그 유지)
+    }
+  }
 }
 
 function startSessionScanner() {
-  console.log('[SCANNER] 세션 자동감지 시작...');
-  // 초기 스캔
-  scanActiveTranscripts();
-  watchProjectDirs();
-  // 주기적 스캔 (새 프로젝트 디렉토리 감지 + 활성 상태 확인)
-  setInterval(() => {
-    scanActiveTranscripts();
-    watchProjectDirs();
-  }, SCAN_INTERVAL);
+  console.log('[SCANNER] 프로세스 기반 세션 스캐너 시작...');
+  scanClaudeProcesses().catch(e => console.error('[SCANNER]', e));
+  setInterval(() => scanClaudeProcesses().catch(e => console.error('[SCANNER]', e)), SCAN_INTERVAL);
 }
 
 // ── 세션 관리 ──
@@ -278,10 +310,9 @@ function getOrCreateSession(event) {
 
   // 같은 프로젝트 경로의 기존 세션이 있으면 그쪽에 합류
   if (event.project_path) {
-    const normPath = event.project_path.toLowerCase().replace(/\\/g, '/');
+    const normPath = normalizePath(event.project_path);
     for (const [, s] of sessions) {
-      const sPath = (s.path || '').toLowerCase().replace(/\\/g, '/');
-      if (sPath === normPath) {
+      if (normalizePath(s.path) === normPath) {
         s.lastActivity = Date.now();
         if (event.project_name) s.name = event.project_name;
         return s;
@@ -316,6 +347,10 @@ setInterval(() => {
       sessions.delete(id);
       interactiveSessionIds.delete(id);
       stopWatchingTranscript(id);
+      // knownPids에서도 해당 세션 정리 (좀비 방지)
+      for (const [pid, info] of knownPids) {
+        if (info.sessionId === id) knownPids.delete(pid);
+      }
       broadcast({ type: 'session_removed', session_id: id });
       console.log(`[SESSION] 정리: ${session.name} (${id})`);
     }
@@ -729,11 +764,6 @@ function shutdown() {
   for (const [id] of watchers) {
     stopWatchingTranscript(id);
   }
-  // 프로젝트 디렉토리 워쳐 정리
-  for (const [, w] of projectWatchers) {
-    w.close();
-  }
-  projectWatchers.clear();
   // WebSocket 클라이언트 종료
   for (const ws of clients) {
     ws.close();

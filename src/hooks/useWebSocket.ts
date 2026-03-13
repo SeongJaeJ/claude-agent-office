@@ -58,6 +58,13 @@ export function useWebSocket() {
             break;
           case 'session_new': {
             const store = useSessionStore.getState();
+            const sName = (data.session.name || '').toLowerCase();
+            // 같은 이름의 interactive 세션이 있으면 모니터링 탭 생성 스킵
+            let hasInteractive = false;
+            for (const [, s] of store.sessions) {
+              if (s.isManual && s.name.toLowerCase() === sName) { hasInteractive = true; break; }
+            }
+            if (hasInteractive) break;
             const linked = store.findLinkedManualSession(data.session.id);
             if (!linked) {
               store.getOrCreateSession(data.session.id, data.session.name, data.session.path);
