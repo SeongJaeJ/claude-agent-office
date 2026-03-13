@@ -167,6 +167,18 @@ function onSessionDiscovered(transcriptPath, meta) {
     console.log(`[SCANNER] interactive 세션 스킵: ${meta.projectName} (${meta.sessionId.slice(0, 8)})`);
     return;
   }
+  // 지연 처리: hook이 먼저 도착해서 interactiveSessionIds에 등록할 시간을 줌
+  // (scanner가 hook보다 먼저 .jsonl을 발견하는 race condition 방지)
+  setTimeout(() => {
+    if (interactiveSessionIds.has(meta.sessionId)) {
+      console.log(`[SCANNER] interactive 세션 스킵 (지연): ${meta.projectName} (${meta.sessionId.slice(0, 8)})`);
+      return;
+    }
+    onSessionDiscoveredImmediate(transcriptPath, meta);
+  }, 3000);
+}
+
+function onSessionDiscoveredImmediate(transcriptPath, meta) {
 
   // 훅으로 이미 등록된 세션이면 트랜스크립트 감시만 추가
   const existingSession = sessions.get(meta.sessionId);
@@ -252,6 +264,10 @@ const interactiveSessionIds = new Set(); // Agent Office 터미널에서 실행�
 
 function getOrCreateSession(event) {
   const id = event.session_id || 'default';
+  // interactive 마킹을 세션 생성 전에 먼저 처리 (race condition 방지)
+  if (event.agent_office_term_id) {
+    interactiveSessionIds.add(id);
+  }
   if (sessions.has(id)) {
     const session = sessions.get(id);
     session.lastActivity = Date.now();
@@ -490,10 +506,7 @@ const server = createServer((req, res) => {
           res.end('{"ok":true,"skipped":true}');
           return;
         }
-        // Agent Office 터미널에서 온 훅이면 interactive로 마킹
-        if (event.agent_office_term_id) {
-          interactiveSessionIds.add(session.id);
-        }
+        // agent_office_term_id 마킹은 getOrCreateSession에서 이미 처리됨
         console.log(`[HOOK] [${session.name}] ${event.hook_event_name} → ${event.tool_name || ''}${event.agent_office_term_id ? ' (interactive)' : ''}`);
         // 트랜스크립트 경로가 있으면 감시 시작
         if (event.transcript_path) {
@@ -551,24 +564,11 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // node_modules 정적 파일 (xterm)
-  if (req.url.startsWith('/node_modules/')) {
-    const nmPath = join(__dirname, req.url);
-    const ext = req.url.split('.').pop();
-    const mimeTypes = { js: 'application/javascript', css: 'text/css', mjs: 'application/javascript' };
-    try {
-      const content = readFileSync(nmPath);
-      res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
-      res.end(content);
-    } catch {
-      res.writeHead(404); res.end('Not Found');
-    }
-    return;
-  }
-
-  // 정적 파일 서빙
+  // 정적 파일 서빙 — dist/(빌드 결과) 우선, public/ fallback
   let filePath = req.url === '/' ? '/index.html' : req.url;
-  const fullPath = join(__dirname, 'public', filePath);
+  const distPath = join(__dirname, 'dist', filePath);
+  const pubPath = join(__dirname, 'public', filePath);
+  const fullPath = existsSync(distPath) ? distPath : pubPath;
   const ext = filePath.split('.').pop();
   const mimeTypes = {
     html: 'text/html; charset=utf-8',

@@ -10,6 +10,8 @@
   "scripts": {
     "start": "node bin/agent-office.js",
     "dev": "node --watch server.js",
+    "dev:client": "vite",
+    "build": "vite build",
     "postinstall": "node scripts/postinstall.cjs"
   },
   "dependencies": {
@@ -19,8 +21,11 @@
     "@xterm/xterm": "^6.0.0",
     "node-pty": "^1.1.0",
     "pngjs": "^7.0.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "sharp": "^0.34.5",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "zustand": "^5.0.11"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -33,6 +38,11 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "playwright": "^1.58.2"
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.0",
+    "playwright": "^1.58.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0"
   }
 }

@@ -99,6 +99,18 @@ async function start() {
     setup();
   }
 
+  // dist/ 빌드 확인 — 없으면 자동 빌드
+  const distIndex = join(__dirname, '..', 'dist', 'index.html');
+  if (!existsSync(distIndex)) {
+    console.log('  [빌드] React 클라이언트 빌드 중...');
+    const { execSync } = await import('child_process');
+    try {
+      execSync('npx vite build', { cwd: join(__dirname, '..'), stdio: 'inherit' });
+    } catch (e) {
+      console.error('  [빌드] 실패 — public/index.html fallback 사용');
+    }
+  }
+
   // 서버 실행
   const serverPath = join(__dirname, '..', 'server.js');
   await import(serverPath);
