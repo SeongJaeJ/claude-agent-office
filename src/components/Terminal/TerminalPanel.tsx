@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useSessionStore } from '../../stores/useSessionStore';
+import { useSessionStore } from '@/stores/useSessionStore';
 
 interface TerminalPanelProps {
   wsRef: React.RefObject<WebSocket | null>;
@@ -27,34 +27,31 @@ export function TerminalPanel({ wsRef }: TerminalPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const searchBarRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  // 리렌더 트리거
   useSessionStore((s) => s._tick);
 
   const isManual = activeSession?.isManual;
 
-  // 터미널 생성
   const createTerminal = useCallback(
     async (session: any) => {
       if (session.term || !containerRef.current) return;
-      const { Terminal, FitAddon, WebLinksAddon, SearchAddon } =
-        await loadXtermModules();
+      const { Terminal, FitAddon, WebLinksAddon, SearchAddon } = await loadXtermModules();
       const id = 'term-' + ++termCounter;
       session.termId = id;
 
       const term = new Terminal({
-        fontFamily: "'Courier New', monospace",
+        fontFamily: "'JetBrains Mono', monospace",
         fontSize: 13,
         theme: {
-          background: '#0a0a16',
+          background: '#08090f',
           foreground: '#c8d6e5',
-          cursor: '#e94560',
+          cursor: '#00d4ff',
           selectionBackground: '#264f78',
           black: '#1a1a2e',
-          red: '#e94560',
-          green: '#6bcb77',
-          yellow: '#ffd93d',
-          blue: '#4d96ff',
-          magenta: '#c084fc',
+          red: '#ff3d71',
+          green: '#00ff88',
+          yellow: '#ffb800',
+          blue: '#00d4ff',
+          magenta: '#a78bfa',
           cyan: '#20c997',
           white: '#c8d6e5',
           brightBlack: '#555',
@@ -109,21 +106,16 @@ export function TerminalPanel({ wsRef }: TerminalPanelProps) {
     [wsRef],
   );
 
-  // 세션 변경 시 터미널 전환
   useEffect(() => {
     if (!activeSession || !isManual) return;
     if (!activeSession.term) {
       createTerminal(activeSession);
     }
-
-    // 모든 터미널 엘리먼트 숨기기
     if (containerRef.current) {
       Array.from(containerRef.current.children).forEach((el) => {
         (el as HTMLElement).style.display = 'none';
       });
     }
-
-    // 현재 세션 터미널 표시
     if (activeSession.termEl) {
       activeSession.termEl.style.display = 'block';
       requestAnimationFrame(() => {
@@ -133,7 +125,6 @@ export function TerminalPanel({ wsRef }: TerminalPanelProps) {
     }
   }, [activeSession?.id, isManual, createTerminal, activeSession]);
 
-  // 리사이즈
   useEffect(() => {
     const handleResize = () => {
       if (activeSession?.fitAddon && isManual) {
@@ -144,13 +135,12 @@ export function TerminalPanel({ wsRef }: TerminalPanelProps) {
     return () => window.removeEventListener('resize', handleResize);
   }, [activeSession, isManual]);
 
-  // Ctrl+F 검색
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'f' && isManual) {
         e.preventDefault();
-        searchBarRef.current?.classList.toggle('visible');
-        if (searchBarRef.current?.classList.contains('visible')) {
+        searchBarRef.current?.classList.toggle('search-visible');
+        if (searchBarRef.current?.classList.contains('search-visible')) {
           searchInputRef.current?.focus();
           searchInputRef.current?.select();
         } else {
@@ -158,8 +148,8 @@ export function TerminalPanel({ wsRef }: TerminalPanelProps) {
           activeSession?.term?.focus();
         }
       }
-      if (e.key === 'Escape' && searchBarRef.current?.classList.contains('visible')) {
-        searchBarRef.current.classList.remove('visible');
+      if (e.key === 'Escape' && searchBarRef.current?.classList.contains('search-visible')) {
+        searchBarRef.current.classList.remove('search-visible');
         activeSession?.searchAddon?.clearDecorations();
         activeSession?.term?.focus();
       }
@@ -178,36 +168,48 @@ export function TerminalPanel({ wsRef }: TerminalPanelProps) {
   if (!isManual) return null;
 
   return (
-    <div className="terminal-panel" id="terminalPanel">
-      <div className="terminal-header">
-        <span className="terminal-title">TERMINAL</span>
-        <span style={{ color: '#666', fontSize: '12px', marginLeft: '8px' }}>
-          {activeSession?.name}
+    <div className="flex flex-col h-full bg-bg-deep">
+      {/* 헤더 */}
+      <div className="flex items-center px-3.5 py-2 gap-1.5 border-b border-border bg-bg-card shrink-0">
+        <span className="w-[9px] h-[9px] rounded-full bg-[#ff5f56]" />
+        <span className="w-[9px] h-[9px] rounded-full bg-[#ffbd2e]" />
+        <span className="w-[9px] h-[9px] rounded-full bg-[#27c93f]" />
+        <span className="text-[11px] text-text-muted font-mono ml-1.5">
+          {activeSession?.name} — zsh
         </span>
       </div>
-      <div ref={searchBarRef} className="terminal-search-bar">
+
+      {/* 검색바 */}
+      <div
+        ref={searchBarRef}
+        className="hidden items-center gap-1 px-3 py-1.5 bg-bg-elevated border-b border-border [&.search-visible]:flex"
+      >
         <input
           ref={searchInputRef}
           type="text"
           placeholder="검색..."
+          className="flex-1 bg-bg-card border border-border rounded px-2 py-1 text-xs text-text-primary font-mono outline-none focus:border-accent-cyan"
           onKeyDown={(e) => {
             if (e.key === 'Enter') doSearch(e.shiftKey ? 'prev' : 'next');
           }}
           onInput={() => doSearch('next')}
         />
-        <button onClick={() => doSearch('prev')}>▲</button>
-        <button onClick={() => doSearch('next')}>▼</button>
+        <button onClick={() => doSearch('prev')} className="text-text-muted hover:text-text-primary text-xs px-1">▲</button>
+        <button onClick={() => doSearch('next')} className="text-text-muted hover:text-text-primary text-xs px-1">▼</button>
         <button
           onClick={() => {
-            searchBarRef.current?.classList.remove('visible');
+            searchBarRef.current?.classList.remove('search-visible');
             activeSession?.searchAddon?.clearDecorations();
             activeSession?.term?.focus();
           }}
+          className="text-text-muted hover:text-text-primary text-xs px-1"
         >
           ✕
         </button>
       </div>
-      <div ref={containerRef} className="terminal-container" id="terminalContainer" />
+
+      {/* 터미널 컨테이너 */}
+      <div ref={containerRef} className="flex-1 bg-terminal-bg" />
     </div>
   );
 }

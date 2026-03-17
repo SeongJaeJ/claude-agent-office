@@ -1,0 +1,46 @@
+@import "tailwindcss";
+@import '@xterm/xterm/css/xterm.css';
+
+@theme {
+  --color-bg-deep: #08090f;
+  --color-bg-surface: #0e1018;
+  --color-bg-card: #141620;
+  --color-bg-elevated: #1a1d2e;
+  --color-border: #1e2235;
+  --color-border-active: #2a3050;
+  --color-text-primary: #e2e6f0;
+  --color-text-secondary: #7a819e;
+  --color-text-muted: #4a5070;
+  --color-text-dim: #333333;
+  --color-accent-cyan: #00d4ff;
+  --color-accent-green: #00ff88;
+  --color-accent-amber: #ffb800;
+  --color-accent-pink: #ff3d71;
+  --color-accent-purple: #a78bfa;
+  --color-terminal-bg: #08090f;
+
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Space Mono', monospace;
+}
+
+/* 기본 스크롤바 디자인 */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; margin: 2px; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2a3050, #1e2235);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #3a4060, #2e3245);
+}
+::-webkit-scrollbar-corner { background: var(--color-bg-deep); }
+
+/* 프로그레스 바 indeterminate 애니메이션 */
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+.animate-indeterminate {
+  animation: indeterminate 1.5s ease-in-out infinite;
+}

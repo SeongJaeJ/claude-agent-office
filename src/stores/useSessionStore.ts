@@ -99,6 +99,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const session = sessions.get(id);
     if (session) {
       Object.values(session.idleTimers).forEach(clearTimeout);
+      // xterm 인스턴스 및 DOM 정리
+      if (session.term) {
+        session.term.dispose();
+        session.term = null;
+      }
+      if (session.termEl) {
+        session.termEl.remove();
+        session.termEl = null;
+      }
+      session.fitAddon = null;
+      session.searchAddon = null;
       if (session.linkedHookSessionId) {
         hookSessionLinks.delete(session.linkedHookSessionId);
       }

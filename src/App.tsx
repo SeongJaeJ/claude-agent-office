@@ -1,18 +1,18 @@
 import { useEffect, useCallback, useState } from 'react';
-import { Header } from './components/Header';
-import { TabBar } from './components/TabBar';
-import { Office } from './components/Office/Office';
-import { RightPanel } from './components/RightPanel/RightPanel';
+import { TopBar } from './components/TopBar';
+import { DetailLayout } from './components/layouts/DetailLayout';
+import { GridLayout } from './components/layouts/GridLayout';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useSessionStore } from './stores/useSessionStore';
 import { useAgentStore } from './stores/useAgentStore';
-import './styles/global.css';
+import { useViewStore } from './stores/useViewStore';
 
 let manualTabCounter = 0;
 
 export default function App() {
   const { ws, isConnected } = useWebSocket();
   const sessions = useSessionStore((s) => s.sessions);
+  const viewMode = useViewStore((s) => s.viewMode);
   const [initialized, setInitialized] = useState(false);
 
   // 에이전트 설정 로드
@@ -45,13 +45,13 @@ export default function App() {
   }, []);
 
   return (
-    <>
-      <Header isConnected={isConnected} />
-      <TabBar onNewTab={createManualTab} />
-      <div className="main-area">
-        <Office />
-        <RightPanel wsRef={ws} />
-      </div>
-    </>
+    <div className="h-screen flex flex-col bg-bg-deep text-text-primary">
+      <TopBar isConnected={isConnected} onNewTab={createManualTab} />
+      {viewMode === 'detail' ? (
+        <DetailLayout wsRef={ws} onNewTab={createManualTab} />
+      ) : (
+        <GridLayout onNewTab={createManualTab} />
+      )}
+    </div>
   );
 }
