@@ -1,5 +1,6 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useSessionStore } from '@/stores/useSessionStore';
+import type { Session } from '@/types';
 
 interface TerminalPanelProps {
   wsRef: React.RefObject<WebSocket | null>;
@@ -20,19 +21,39 @@ async function loadXtermModules() {
   return xtermModules;
 }
 
+// 모듈 스코프 카운터 — HMR 시에도 ID 충돌 방지 (monotonic)
 let termCounter = 0;
 
+/** WebSocket 전송 유틸 */
+function sendWs(ws: React.RefObject<WebSocket | null>, payload: Record<string, unknown>) {
+  if (ws.current?.readyState === WebSocket.OPEN) {
+    ws.current.send(JSON.stringify(payload));
+  }
+}
+
 export function TerminalPanel({ wsRef }: TerminalPanelProps) {
-  const activeSession = useSessionStore((s) => s.getActiveSession());
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const getActiveSession = useSessionStore((s) => s.getActiveSession);
   const containerRef = useRef<HTMLDivElement>(null);
-  const searchBarRef = useRef<HTMLDivElement>(null);
+  const sessionRef = useRef<Session | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  useSessionStore((s) => s._tick);
+
+  // 현재 세션 ref 동기화
+  const activeSession = getActiveSession();
+  sessionRef.current = activeSession ?? null;
 
   const isManual = activeSession?.isManual;
 
+  /** 검색바 닫기 */
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    sessionRef.current?.searchAddon?.clearDecorations();
+    sessionRef.current?.term?.focus();
+  }, []);
+
   const createTerminal = useCallback(
-    async (session: any) => {
+    async (session: Session) => {
       if (session.term || !containerRef.current) return;
       const { Terminal, FitAddon, WebLinksAddon, SearchAddon } = await loadXtermModules();
       const id = 'term-' + ++termCounter;
@@ -80,14 +101,10 @@ export function TerminalPanel({ wsRef }: TerminalPanelProps) {
       term.open(el);
 
       term.onData((data: string) => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ type: 'terminal_input', id, data }));
-        }
+        sendWs(wsRef, { type: 'terminal_input', id, data });
       });
       term.onResize(({ cols, rows }: { cols: number; rows: number }) => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ type: 'terminal_resize', id, cols, rows }));
-        }
+        sendWs(wsRef, { type: 'terminal_resize', id, cols, rows });
       });
 
       session.term = term;
@@ -98,103 +115,125 @@ export function TerminalPanel({ wsRef }: TerminalPanelProps) {
       requestAnimationFrame(() => {
         fitAddon.fit();
         const { cols, rows } = term;
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ type: 'terminal_create', id, cols, rows }));
-        }
+        sendWs(wsRef, { type: 'terminal_create', id, cols, rows });
       });
     },
     [wsRef],
   );
 
+  // 터미널 생성 + 활성 세션 전환
   useEffect(() => {
-    if (!activeSession || !isManual) return;
-    if (!activeSession.term) {
-      createTerminal(activeSession);
+    const session = getActiveSession();
+    if (!session || !session.isManual) return;
+    if (!session.term) {
+      createTerminal(session);
     }
     if (containerRef.current) {
+      // 이전 세션의 termEl만 숨기면 되지만, 안전하게 전체 숨김
       Array.from(containerRef.current.children).forEach((el) => {
         (el as HTMLElement).style.display = 'none';
       });
     }
-    if (activeSession.termEl) {
-      activeSession.termEl.style.display = 'block';
+    if (session.termEl && containerRef.current) {
+      // 언마운트 후 재마운트 시 termEl이 현재 컨테이너에 없으면 다시 붙이기
+      // (appendChild는 기존 부모에서 자동 분리 — DOM spec)
+      if (!containerRef.current.contains(session.termEl)) {
+        containerRef.current.appendChild(session.termEl);
+      }
+      session.termEl.style.display = 'block';
       requestAnimationFrame(() => {
-        activeSession.fitAddon?.fit();
-        activeSession.term?.focus();
+        session.fitAddon?.fit();
+        session.term?.focus();
       });
     }
-  }, [activeSession?.id, isManual, createTerminal, activeSession]);
+    // 세션 전환 시 검색바 닫기
+    setSearchOpen(false);
+  }, [activeSessionId, createTerminal, getActiveSession]);
 
+  // resize 핸들러 (debounce 적용)
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
     const handleResize = () => {
-      if (activeSession?.fitAddon && isManual) {
-        activeSession.fitAddon.fit();
-      }
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const session = sessionRef.current;
+        if (session?.fitAddon && session.isManual) {
+          session.fitAddon.fit();
+        }
+      }, 150);
     };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [activeSession, isManual]);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
+  // 키보드 단축키 (Ctrl+F / Escape)
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && isManual) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && sessionRef.current?.isManual) {
         e.preventDefault();
-        searchBarRef.current?.classList.toggle('search-visible');
-        if (searchBarRef.current?.classList.contains('search-visible')) {
-          searchInputRef.current?.focus();
-          searchInputRef.current?.select();
-        } else {
-          activeSession?.searchAddon?.clearDecorations();
-          activeSession?.term?.focus();
-        }
+        setSearchOpen((prev) => {
+          if (prev) {
+            // 닫기
+            sessionRef.current?.searchAddon?.clearDecorations();
+            sessionRef.current?.term?.focus();
+            return false;
+          }
+          // 열기
+          requestAnimationFrame(() => {
+            searchInputRef.current?.focus();
+            searchInputRef.current?.select();
+          });
+          return true;
+        });
       }
-      if (e.key === 'Escape' && searchBarRef.current?.classList.contains('search-visible')) {
-        searchBarRef.current.classList.remove('search-visible');
-        activeSession?.searchAddon?.clearDecorations();
-        activeSession?.term?.focus();
+      if (e.key === 'Escape') {
+        setSearchOpen((prev) => {
+          if (!prev) return false;
+          sessionRef.current?.searchAddon?.clearDecorations();
+          sessionRef.current?.term?.focus();
+          return false;
+        });
       }
     };
     document.addEventListener('keydown', handleKeydown);
     return () => document.removeEventListener('keydown', handleKeydown);
-  }, [activeSession, isManual]);
+  }, []);
 
   const doSearch = (direction: 'next' | 'prev') => {
     const val = searchInputRef.current?.value;
-    if (!val || !activeSession?.searchAddon) return;
-    if (direction === 'prev') activeSession.searchAddon.findPrevious(val);
-    else activeSession.searchAddon.findNext(val);
+    if (!val || !sessionRef.current?.searchAddon) return;
+    if (direction === 'prev') sessionRef.current.searchAddon.findPrevious(val);
+    else sessionRef.current.searchAddon.findNext(val);
   };
 
   return (
     <div className="flex flex-col h-full bg-bg-deep">
       {/* 검색바 */}
-      <div
-        ref={searchBarRef}
-        className="hidden items-center gap-1 px-3 py-1.5 bg-bg-elevated border-b border-border [&.search-visible]:flex"
-      >
-        <input
-          ref={searchInputRef}
-          type="text"
-          placeholder="검색..."
-          className="flex-1 bg-bg-card border border-border rounded px-2 py-1 text-xs text-text-primary font-mono outline-none focus:border-accent-cyan"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') doSearch(e.shiftKey ? 'prev' : 'next');
-          }}
-          onInput={() => doSearch('next')}
-        />
-        <button onClick={() => doSearch('prev')} className="text-text-muted hover:text-text-primary text-xs px-1">▲</button>
-        <button onClick={() => doSearch('next')} className="text-text-muted hover:text-text-primary text-xs px-1">▼</button>
-        <button
-          onClick={() => {
-            searchBarRef.current?.classList.remove('search-visible');
-            activeSession?.searchAddon?.clearDecorations();
-            activeSession?.term?.focus();
-          }}
-          className="text-text-muted hover:text-text-primary text-xs px-1"
-        >
-          ✕
-        </button>
-      </div>
+      {searchOpen && (
+        <div className="flex items-center gap-1 px-3 py-1.5 bg-bg-elevated border-b border-border">
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="검색..."
+            className="flex-1 bg-bg-card border border-border rounded px-2 py-1 text-xs text-text-primary font-mono outline-none focus:border-accent-cyan"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') doSearch(e.shiftKey ? 'prev' : 'next');
+            }}
+            onInput={() => doSearch('next')}
+          />
+          <button onClick={() => doSearch('prev')} className="text-text-muted hover:text-text-primary text-xs px-1">▲</button>
+          <button onClick={() => doSearch('next')} className="text-text-muted hover:text-text-primary text-xs px-1">▼</button>
+          <button
+            onClick={closeSearch}
+            className="text-text-muted hover:text-text-primary text-xs px-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* 터미널 컨테이너 */}
       <div ref={containerRef} className="flex-1 bg-terminal-bg" />
