@@ -6,12 +6,12 @@
   --color-bg-surface: #0e1018;
   --color-bg-card: #141620;
   --color-bg-elevated: #1a1d2e;
-  --color-border: #1e2235;
-  --color-border-active: #2a3050;
+  --color-border: #2a3050;
+  --color-border-active: #3a4565;
   --color-text-primary: #e2e6f0;
-  --color-text-secondary: #7a819e;
-  --color-text-muted: #4a5070;
-  --color-text-dim: #333333;
+  --color-text-secondary: #8a92b0;
+  --color-text-muted: #6a7094;
+  --color-text-dim: #555a78;
   --color-accent-cyan: #00d4ff;
   --color-accent-green: #00ff88;
   --color-accent-amber: #ffb800;

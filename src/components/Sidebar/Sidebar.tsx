@@ -25,7 +25,7 @@ export function Sidebar({ onNewTab }: SidebarProps) {
   );
 
   return (
-    <aside className="bg-bg-surface border-r border-border flex flex-col overflow-y-auto">
+    <aside className="bg-bg-surface border-r border-border flex flex-col overflow-y-auto h-full">
       <div className="text-[9px] font-semibold tracking-[1.5px] uppercase text-text-dim font-mono px-3.5 pt-3.5 pb-2">
         Projects
       </div>
