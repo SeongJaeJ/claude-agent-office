@@ -165,20 +165,8 @@ export function TerminalPanel({ wsRef }: TerminalPanelProps) {
     else activeSession.searchAddon.findNext(val);
   };
 
-  if (!isManual) return null;
-
   return (
     <div className="flex flex-col h-full bg-bg-deep">
-      {/* 헤더 */}
-      <div className="flex items-center px-3.5 py-2 gap-1.5 border-b border-border bg-bg-card shrink-0">
-        <span className="w-[9px] h-[9px] rounded-full bg-[#ff5f56]" />
-        <span className="w-[9px] h-[9px] rounded-full bg-[#ffbd2e]" />
-        <span className="w-[9px] h-[9px] rounded-full bg-[#27c93f]" />
-        <span className="text-[11px] text-text-muted font-mono ml-1.5">
-          {activeSession?.name} — zsh
-        </span>
-      </div>
-
       {/* 검색바 */}
       <div
         ref={searchBarRef}

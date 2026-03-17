@@ -9,13 +9,12 @@ interface MiniAgentStripProps {
 export function MiniAgentStrip({ agentStates }: MiniAgentStripProps) {
   const agents = useAgentStore((s) => s.agents);
 
-  // 상태가 있는 에이전트만 표시
-  const activeAgents = agents.filter((a) => agentStates[a.id]);
-  if (activeAgents.length === 0) return null;
+  // 모든 에이전트 표시 (상태 없으면 idle 취급)
+  if (agents.length === 0) return null;
 
   return (
     <div className="flex gap-1 px-2 py-1 overflow-x-auto scrollbar-thin">
-      {activeAgents.map((agent) => {
+      {agents.map((agent) => {
         const st = agentStates[agent.id]?.state || 'idle';
         return (
           <span
@@ -29,7 +28,7 @@ export function MiniAgentStrip({ agentStates }: MiniAgentStripProps) {
           >
             <span
               className="w-1.5 h-1.5 rounded-full shrink-0"
-              style={{ background: st === 'idle' ? '#333' : agent.color }}
+              style={{ background: st === 'idle' ? 'var(--color-text-dim)' : agent.color }}
             />
             {agent.name.split(' ')[0]}
           </span>
