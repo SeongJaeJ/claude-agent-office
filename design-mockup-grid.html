@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1600, initial-scale=1">
+<title>Agent Office — Grid View (Projects)</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #08090f;
+    --bg-surface: #0e1018;
+    --bg-card: #141620;
+    --bg-elevated: #1a1d2e;
+    --border: #1e2235;
+    --border-active: #2a3050;
+    --text-primary: #e2e6f0;
+    --text-secondary: #7a819e;
+    --text-muted: #4a5070;
+    --text-dim: #333;
+    --accent-cyan: #00d4ff;
+    --accent-green: #00ff88;
+    --accent-amber: #ffb800;
+    --accent-pink: #ff3d71;
+    --accent-purple: #a78bfa;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 1600px;
+  }
+
+  .app {
+    display: grid;
+    grid-template-rows: 48px 1fr;
+    height: 100vh;
+  }
+
+  /* ═══ TOP BAR ═══ */
+  .topbar {
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-icon {
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--bg-deep);
+    font-family: 'Space Mono', monospace;
+  }
+  .logo-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  /* View switcher */
+  .view-switcher {
+    display: flex;
+    gap: 2px;
+    margin-left: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .view-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .view-btn:hover { color: var(--text-secondary); }
+  .view-btn.active {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  .view-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+  .topbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .clock {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .conn-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--accent-green);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .conn-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+  }
+  .topbar-btn {
+    width: 30px; height: 30px; border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 14px;
+  }
+
+  /* ═══ GRID MAIN ═══ */
+  .grid-main {
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .grid-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  /* ═══ PROJECT CELL ═══ */
+  .project-cell {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 380px;
+    transition: border-color 0.2s;
+  }
+  .project-cell:hover { border-color: var(--border-active); }
+  .project-cell.working { border-color: #00ff8833; }
+  .project-cell.interactive { border-color: #00d4ff44; }
+  .project-cell.idle { opacity: 0.7; }
+
+  /* Cell header */
+  .cell-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-card);
+    flex-shrink: 0;
+  }
+
+  .cell-project-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .cell-project-icon .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    position: absolute; bottom: -1px; right: -1px;
+    border: 2px solid var(--bg-card);
+  }
+  .cell-project-icon .dot.working { background: var(--accent-green); box-shadow: 0 0 4px var(--accent-green); }
+  .cell-project-icon .dot.interactive { background: var(--accent-cyan); box-shadow: 0 0 4px var(--accent-cyan); }
+  .cell-project-icon .dot.idle { background: var(--text-dim); }
+
+  .cell-project-name {
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .cell-badge {
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .cell-badge.working { background: #00ff8812; color: var(--accent-green); }
+  .cell-badge.interactive { background: #00d4ff12; color: var(--accent-cyan); }
+  .cell-badge.idle { background: #33333333; color: var(--text-muted); }
+
+  .cell-meta {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .cell-expand-btn {
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 1px solid var(--border-active);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .cell-expand-btn:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    background: #00d4ff12;
+    box-shadow: 0 0 8px #00d4ff18;
+  }
+
+  /* 새 프로젝트 추가 카드 */
+  .add-project-cell {
+    background: transparent;
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    height: 380px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .add-project-cell:hover {
+    border-color: var(--accent-cyan);
+    background: #00d4ff06;
+  }
+  .add-project-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    border: 2px dashed var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    color: var(--text-muted);
+    transition: all 0.2s;
+  }
+  .add-project-cell:hover .add-project-icon {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+  }
+  .add-project-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: color 0.2s;
+  }
+  .add-project-cell:hover .add-project-label { color: var(--accent-cyan); }
+  .add-project-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 1.5;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Agent mini-strip (below header) */
+  .cell-agents-strip {
+    display: flex;
+    gap: 3px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+
+  .mini-agent {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .mini-agent .mini-dot {
+    width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+  }
+  .mini-dot.working { background: var(--accent-green); box-shadow: 0 0 3px var(--accent-green); }
+  .mini-dot.done { background: var(--accent-cyan); }
+  .mini-dot.idle { background: var(--text-dim); }
+
+  .mini-agent.working { color: var(--accent-green); background: #00ff8808; }
+  .mini-agent.done { color: var(--accent-cyan); background: #00d4ff08; }
+  .mini-agent.idle { color: var(--text-muted); }
+
+  /* Cell body: log + terminal */
+  .cell-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .cell-log {
+    overflow-y: auto;
+    padding: 4px 0;
+    border-right: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    line-height: 1.6;
+  }
+  .cell-log-label {
+    font-size: 8px; font-weight: 600; letter-spacing: 1px;
+    color: var(--text-dim); text-transform: uppercase;
+    padding: 2px 8px 3px;
+    position: sticky; top: 0; background: var(--bg-surface); z-index: 1;
+  }
+  .cell-log-entry {
+    display: flex;
+    gap: 4px;
+    padding: 2px 8px;
+    align-items: flex-start;
+  }
+  .cell-log-entry:hover { background: var(--bg-card); }
+  .cell-log-time { color: var(--text-dim); font-size: 9px; flex-shrink: 0; min-width: 38px; }
+  .cell-log-agent {
+    font-size: 8px; font-weight: 600;
+    padding: 0 4px; border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .cell-log-tool {
+    font-size: 8px; padding: 0 3px; border-radius: 2px;
+    background: var(--bg-elevated); color: var(--accent-amber); flex-shrink: 0;
+  }
+  .cell-log-msg {
+    color: var(--text-secondary); flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .fp { color: var(--accent-cyan); }
+  .ok { color: var(--accent-green); }
+  .err { color: var(--accent-pink); }
+
+  .cell-terminal {
+    overflow-y: auto;
+    padding: 4px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    background: #08090f;
+  }
+  .cell-term-label {
+    font-size: 8px; font-weight: 600; letter-spacing: 1px;
+    color: var(--text-dim); text-transform: uppercase;
+    padding: 0 0 3px;
+    position: sticky; top: 0; background: #08090f; z-index: 1;
+  }
+
+  .tp { color: var(--accent-cyan); }
+  .tg { color: var(--accent-green); }
+  .tr { color: var(--accent-pink); }
+  .tw { color: var(--text-primary); }
+  .td { color: var(--text-dim); }
+  .tc { display: inline-block; width: 6px; height: 12px; background: var(--accent-cyan); animation: blink 1s step-end infinite; vertical-align: text-bottom; }
+
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; margin: 2px; }
+  ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #2a3050, #1e2235); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #3a4060, #2e3245); }
+  ::-webkit-scrollbar-corner { background: var(--bg-deep); }
+
+  .grid-main::-webkit-scrollbar { width: 6px; }
+  .grid-main::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--accent-cyan), var(--accent-green)); border-radius: 3px; }
+
+  .cell-log::-webkit-scrollbar, .cell-terminal::-webkit-scrollbar { width: 3px; }
+  .cell-log::-webkit-scrollbar-thumb { background: #1e2235; border-radius: 2px; }
+  .cell-terminal::-webkit-scrollbar-thumb { background: #1a1d2e; border-radius: 2px; }
+
+  .cell-agents-strip::-webkit-scrollbar { height: 2px; }
+  .cell-agents-strip::-webkit-scrollbar-thumb { background: #1e2235; border-radius: 1px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ TOP BAR ═══ -->
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-icon">AO</div>
+      <span class="logo-text">Agent Office</span>
+    </div>
+
+    <div class="view-switcher">
+      <button class="view-btn">
+        <svg viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="1" x2="8" y2="15" stroke="currentColor" stroke-width="1.2"/></svg>
+        Detail
+      </button>
+      <button class="view-btn active">
+        <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor"/></svg>
+        Grid
+      </button>
+    </div>
+
+    <div class="topbar-right">
+      <div class="clock">17:23:45</div>
+      <div class="conn-badge"><span class="conn-dot"></span> CONNECTED</div>
+      <button class="topbar-btn">⊕</button>
+      <button class="topbar-btn">⚙</button>
+    </div>
+  </header>
+
+  <!-- ═══ GRID ═══ -->
+  <div class="grid-main">
+    <div class="grid-container">
+
+      <!-- ── Project 1: claude-agent-ui (Interactive) ── -->
+      <div class="project-cell interactive">
+        <div class="cell-header">
+          <div class="cell-project-icon" style="background:linear-gradient(135deg,#00d4ff18,#00d4ff08);border:1px solid #00d4ff33;">
+            <span>📂</span>
+            <span class="dot interactive"></span>
+          </div>
+          <span class="cell-project-name">claude-agent-ui</span>
+          <span class="cell-badge interactive">● Interactive</span>
+          <span class="cell-meta">12:34</span>
+          <button class="cell-expand-btn">⤢</button>
+        </div>
+        <div class="cell-agents-strip">
+          <div class="mini-agent working"><span class="mini-dot working"></span>Main</div>
+          <div class="mini-agent working"><span class="mini-dot working"></span>Security</div>
+          <div class="mini-agent working"><span class="mini-dot working"></span>Perf</div>
+          <div class="mini-agent idle"><span class="mini-dot idle"></span>Quality</div>
+          <div class="mini-agent idle"><span class="mini-dot idle"></span>Arch</div>
+          <div class="mini-agent done"><span class="mini-dot done"></span>Planner</div>
+          <div class="mini-agent done"><span class="mini-dot done"></span>Designer</div>
+        </div>
+        <div class="cell-body">
+          <div class="cell-log">
+            <div class="cell-log-label">Activity Log</div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:23:01</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Edit</span><span class="cell-log-msg"><span class="fp">useWebSocket.ts</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:23:04</span><span class="cell-log-agent" style="background:#a78bfa14;color:#a78bfa">Sec</span><span class="cell-log-tool">Grep</span><span class="cell-log-msg"><span class="fp">innerHTML</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:23:08</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Write</span><span class="cell-log-msg"><span class="fp">server.js</span> scanner</span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:23:16</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Bash</span><span class="cell-log-msg">build <span class="ok">✓ 2.3s</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:23:20</span><span class="cell-log-agent" style="background:#a78bfa14;color:#a78bfa">Sec</span><span class="cell-log-tool"></span><span class="cell-log-msg"><span class="err">⚠ XSS 위험</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:23:22</span><span class="cell-log-agent" style="background:#f472b614;color:#f472b6">Plan</span><span class="cell-log-tool"></span><span class="cell-log-msg"><span class="ok">✓ 완료</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:23:28</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Edit</span><span class="cell-log-msg"><span class="fp">TerminalPanel.tsx</span></span></div>
+          </div>
+          <div class="cell-terminal">
+            <div class="cell-term-label">Terminal</div>
+            <div><span class="tp">~/project/claude-agent-ui</span></div>
+            <div><span class="tg">❯ </span><span class="tw">claude</span></div>
+            <div><span class="tp">╭─────────────────────╮</span></div>
+            <div><span class="tp">│</span> <span class="tr" style="font-weight:700">Claude Code</span> <span class="td">v1.0</span></div>
+            <div><span class="tp">╰─────────────────────╯</span></div>
+            <div><span class="tg">claude❯ </span><span class="tw">탭 매핑 수정</span></div>
+            <div><span class="tg">✓ </span><span class="td">Edit </span><span class="tp">useWebSocket.ts</span></div>
+            <div><span class="tg">✓ </span><span class="td">Edit </span><span class="tp">server.js</span></div>
+            <div><span class="td">완료!</span></div>
+            <div><span class="tg">claude❯ </span><span class="tc"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Project 2: api-server (Working/Monitoring) ── -->
+      <div class="project-cell working">
+        <div class="cell-header">
+          <div class="cell-project-icon" style="background:linear-gradient(135deg,#00ff8812,#00ff8808);border:1px solid #00ff8822;">
+            <span>📂</span>
+            <span class="dot working"></span>
+          </div>
+          <span class="cell-project-name">api-server</span>
+          <span class="cell-badge working">● Working</span>
+          <span class="cell-meta">5:21</span>
+          <button class="cell-expand-btn">⤢</button>
+        </div>
+        <div class="cell-agents-strip">
+          <div class="mini-agent working"><span class="mini-dot working"></span>Main</div>
+          <div class="mini-agent working"><span class="mini-dot working"></span>Security</div>
+          <div class="mini-agent done"><span class="mini-dot done"></span>Perf</div>
+          <div class="mini-agent done"><span class="mini-dot done"></span>Quality</div>
+        </div>
+        <div class="cell-body">
+          <div class="cell-log">
+            <div class="cell-log-label">Activity Log</div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:18:12</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Read</span><span class="cell-log-msg"><span class="fp">routes/auth.ts</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:18:20</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Edit</span><span class="cell-log-msg"><span class="fp">middleware.ts</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:18:35</span><span class="cell-log-agent" style="background:#a78bfa14;color:#a78bfa">Sec</span><span class="cell-log-tool">Grep</span><span class="cell-log-msg">jwt.verify</span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:18:42</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Bash</span><span class="cell-log-msg">npm test <span class="ok">✓</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:19:01</span><span class="cell-log-agent" style="background:#00d4ff14;color:#00d4ff">Perf</span><span class="cell-log-tool"></span><span class="cell-log-msg"><span class="ok">✓ 응답시간 OK</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:19:10</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Edit</span><span class="cell-log-msg"><span class="fp">db/queries.ts</span></span></div>
+          </div>
+          <div class="cell-terminal">
+            <div class="cell-term-label">Terminal</div>
+            <div><span class="tp">~/project/api-server</span></div>
+            <div><span class="tg">❯ </span><span class="tw">claude</span></div>
+            <div><span class="tg">claude❯ </span><span class="tw">인증 미들웨어 수정</span></div>
+            <div><span class="td">인증 흐름을 분석합니다...</span></div>
+            <div><span class="tp">● </span><span class="td">Read </span><span class="tp">routes/auth.ts</span></div>
+            <div><span class="tg">✓ </span><span class="td">Edit </span><span class="tp">middleware.ts</span></div>
+            <div><span class="tg">✓ </span><span class="td">Bash </span><span class="td">npm test ✓</span></div>
+            <div><span class="tp">● </span><span class="td">Edit </span><span class="tp">db/queries.ts</span></div>
+            <div><span class="tg">claude❯ </span><span class="tc"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Project 3: payment-service (Working/Monitoring) ── -->
+      <div class="project-cell working">
+        <div class="cell-header">
+          <div class="cell-project-icon" style="background:linear-gradient(135deg,#00ff8812,#00ff8808);border:1px solid #00ff8822;">
+            <span>📂</span>
+            <span class="dot working"></span>
+          </div>
+          <span class="cell-project-name">payment-service</span>
+          <span class="cell-badge working">● Working</span>
+          <span class="cell-meta">2:07</span>
+          <button class="cell-expand-btn">⤢</button>
+        </div>
+        <div class="cell-agents-strip">
+          <div class="mini-agent working"><span class="mini-dot working"></span>Main</div>
+          <div class="mini-agent idle"><span class="mini-dot idle"></span>Security</div>
+        </div>
+        <div class="cell-body">
+          <div class="cell-log">
+            <div class="cell-log-label">Activity Log</div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:21:30</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Read</span><span class="cell-log-msg"><span class="fp">stripe.ts</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:21:45</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Read</span><span class="cell-log-msg"><span class="fp">webhook.ts</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:22:01</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Edit</span><span class="cell-log-msg"><span class="fp">stripe.ts</span> 리팩터</span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:22:18</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Bash</span><span class="cell-log-msg">npm test <span class="ok">✓</span></span></div>
+          </div>
+          <div class="cell-terminal">
+            <div class="cell-term-label">Terminal</div>
+            <div><span class="tp">~/project/payment-service</span></div>
+            <div><span class="tg">❯ </span><span class="tw">claude</span></div>
+            <div><span class="tg">claude❯ </span><span class="tw">Stripe 결제 리팩터</span></div>
+            <div><span class="td">결제 로직을 분석합니다...</span></div>
+            <div><span class="tp">● </span><span class="td">Read </span><span class="tp">stripe.ts</span></div>
+            <div><span class="tp">● </span><span class="td">Read </span><span class="tp">webhook.ts</span></div>
+            <div><span class="tg">✓ </span><span class="td">Edit </span><span class="tp">stripe.ts</span></div>
+            <div><span class="tg">claude❯ </span><span class="tc"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Project 4: docs-site (Idle) ── -->
+      <div class="project-cell idle">
+        <div class="cell-header">
+          <div class="cell-project-icon" style="background:var(--bg-card);border:1px solid var(--border);">
+            <span>📂</span>
+            <span class="dot idle"></span>
+          </div>
+          <span class="cell-project-name">docs-site</span>
+          <span class="cell-badge idle">○ Idle</span>
+          <span class="cell-meta"></span>
+          <button class="cell-expand-btn">⤢</button>
+        </div>
+        <div class="cell-agents-strip">
+          <div class="mini-agent idle"><span class="mini-dot idle"></span>Main</div>
+        </div>
+        <div class="cell-body">
+          <div class="cell-log">
+            <div class="cell-log-label">Activity Log</div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:10:22</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Edit</span><span class="cell-log-msg"><span class="fp">intro.md</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:10:45</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool"></span><span class="cell-log-msg"><span class="ok">✓ 응답 완료</span></span></div>
+          </div>
+          <div class="cell-terminal">
+            <div class="cell-term-label">Terminal</div>
+            <div><span class="tp">~/project/docs-site</span></div>
+            <div><span class="tg">claude❯ </span><span class="tw">intro 문서 수정</span></div>
+            <div><span class="tg">✓ </span><span class="td">Edit </span><span class="tp">intro.md</span></div>
+            <div><span class="td">완료!</span></div>
+            <div style="margin-top:4px"><span class="tg">claude❯ </span><span class="td" style="color:#555">_</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Project 5: mobile-app (Working) ── -->
+      <div class="project-cell working">
+        <div class="cell-header">
+          <div class="cell-project-icon" style="background:linear-gradient(135deg,#00ff8812,#00ff8808);border:1px solid #00ff8822;">
+            <span>📂</span>
+            <span class="dot working"></span>
+          </div>
+          <span class="cell-project-name">mobile-app</span>
+          <span class="cell-badge working">● Working</span>
+          <span class="cell-meta">8:15</span>
+          <button class="cell-expand-btn">⤢</button>
+        </div>
+        <div class="cell-agents-strip">
+          <div class="mini-agent working"><span class="mini-dot working"></span>Main</div>
+          <div class="mini-agent working"><span class="mini-dot working"></span>Security</div>
+          <div class="mini-agent working"><span class="mini-dot working"></span>Perf</div>
+          <div class="mini-agent done"><span class="mini-dot done"></span>Designer</div>
+        </div>
+        <div class="cell-body">
+          <div class="cell-log">
+            <div class="cell-log-label">Activity Log</div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:15:10</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Read</span><span class="cell-log-msg"><span class="fp">App.tsx</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:15:22</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Edit</span><span class="cell-log-msg"><span class="fp">navigation.tsx</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:15:40</span><span class="cell-log-agent" style="background:#a78bfa14;color:#a78bfa">Sec</span><span class="cell-log-tool">Grep</span><span class="cell-log-msg">AsyncStorage</span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:16:01</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Edit</span><span class="cell-log-msg"><span class="fp">HomeScreen.tsx</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:16:15</span><span class="cell-log-agent" style="background:#818cf814;color:#818cf8">Des</span><span class="cell-log-tool"></span><span class="cell-log-msg"><span class="ok">✓ UI 점검 완료</span></span></div>
+          </div>
+          <div class="cell-terminal">
+            <div class="cell-term-label">Terminal</div>
+            <div><span class="tp">~/project/mobile-app</span></div>
+            <div><span class="tg">❯ </span><span class="tw">claude</span></div>
+            <div><span class="tg">claude❯ </span><span class="tw">네비게이션 리팩터</span></div>
+            <div><span class="td">구조를 분석합니다...</span></div>
+            <div><span class="tg">✓ </span><span class="td">Edit </span><span class="tp">navigation.tsx</span></div>
+            <div><span class="tp">● </span><span class="td">Edit </span><span class="tp">HomeScreen.tsx</span></div>
+            <div><span class="tg">claude❯ </span><span class="tc"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Project 6: infra-config (Working) ── -->
+      <div class="project-cell working">
+        <div class="cell-header">
+          <div class="cell-project-icon" style="background:linear-gradient(135deg,#00ff8812,#00ff8808);border:1px solid #00ff8822;">
+            <span>📂</span>
+            <span class="dot working"></span>
+          </div>
+          <span class="cell-project-name">infra-config</span>
+          <span class="cell-badge working">● Working</span>
+          <span class="cell-meta">1:42</span>
+          <button class="cell-expand-btn">⤢</button>
+        </div>
+        <div class="cell-agents-strip">
+          <div class="mini-agent working"><span class="mini-dot working"></span>Main</div>
+          <div class="mini-agent working"><span class="mini-dot working"></span>Security</div>
+        </div>
+        <div class="cell-body">
+          <div class="cell-log">
+            <div class="cell-log-label">Activity Log</div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:21:55</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Read</span><span class="cell-log-msg"><span class="fp">terraform/main.tf</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:22:10</span><span class="cell-log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span><span class="cell-log-tool">Edit</span><span class="cell-log-msg"><span class="fp">modules/vpc.tf</span></span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:22:30</span><span class="cell-log-agent" style="background:#a78bfa14;color:#a78bfa">Sec</span><span class="cell-log-tool">Grep</span><span class="cell-log-msg">0.0.0.0/0</span></div>
+            <div class="cell-log-entry"><span class="cell-log-time">14:22:38</span><span class="cell-log-agent" style="background:#a78bfa14;color:#a78bfa">Sec</span><span class="cell-log-tool"></span><span class="cell-log-msg"><span class="err">⚠ SG 0.0.0.0 오픈</span></span></div>
+          </div>
+          <div class="cell-terminal">
+            <div class="cell-term-label">Terminal</div>
+            <div><span class="tp">~/project/infra-config</span></div>
+            <div><span class="tg">❯ </span><span class="tw">claude</span></div>
+            <div><span class="tg">claude❯ </span><span class="tw">VPC 설정 수정</span></div>
+            <div><span class="tp">● </span><span class="td">Read </span><span class="tp">main.tf</span></div>
+            <div><span class="tg">✓ </span><span class="td">Edit </span><span class="tp">vpc.tf</span></div>
+            <div><span class="tr">⚠ SG에 0.0.0.0/0</span></div>
+            <div><span class="tr">  오픈 포트 발견</span></div>
+            <div><span class="tg">claude❯ </span><span class="tc"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Add New Project ── -->
+      <div class="add-project-cell">
+        <div class="add-project-icon">+</div>
+        <div class="add-project-label">New Session</div>
+        <div class="add-project-desc">프로젝트 폴더를 선택하거나<br>CLI로 Claude를 실행합니다</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

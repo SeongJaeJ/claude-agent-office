@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1600, initial-scale=1">
+<title>Agent Office — Combined Design</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #08090f;
+    --bg-surface: #0e1018;
+    --bg-card: #141620;
+    --bg-elevated: #1a1d2e;
+    --border: #1e2235;
+    --border-active: #2a3050;
+    --text-primary: #e2e6f0;
+    --text-secondary: #7a819e;
+    --text-muted: #4a5070;
+    --text-dim: #333;
+    --accent-cyan: #00d4ff;
+    --accent-green: #00ff88;
+    --accent-amber: #ffb800;
+    --accent-pink: #ff3d71;
+    --accent-purple: #a78bfa;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 1600px;
+  }
+
+  /* ═══ LAYOUT ═══ */
+  .app {
+    display: grid;
+    grid-template-columns: 220px 1fr 1fr;
+    grid-template-rows: 48px 1fr;
+    height: 100vh;
+  }
+
+  /* ═══ TOP BAR ═══ */
+  .topbar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-icon {
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--bg-deep);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .logo-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .topbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .conn-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--accent-green);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .conn-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+  }
+
+  .topbar-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .topbar-btn:hover { border-color: var(--border-active); color: var(--text-secondary); }
+
+  .clock {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    letter-spacing: 0.5px;
+  }
+
+  /* ═══ LEFT SIDEBAR — PROJECT LIST ═══ */
+  .sidebar {
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .sidebar-title {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    padding: 14px 14px 8px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .project-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 0 6px;
+  }
+
+  .project-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+    position: relative;
+  }
+  .project-item:hover { background: var(--bg-card); }
+  .project-item.active {
+    background: var(--bg-elevated);
+  }
+  .project-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--accent-cyan);
+  }
+
+  .project-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .project-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    border: 2px solid var(--bg-surface);
+  }
+  .project-status-dot.working { background: var(--accent-green); box-shadow: 0 0 4px var(--accent-green); }
+  .project-status-dot.idle { background: var(--text-dim); }
+  .project-status-dot.interactive { background: var(--accent-cyan); box-shadow: 0 0 4px var(--accent-cyan); }
+
+  .project-info { flex: 1; min-width: 0; }
+  .project-name {
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .project-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .project-meta.working { color: var(--accent-green); }
+
+  .project-badge {
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 1px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 8px 14px;
+  }
+
+  .sidebar-section {
+    padding: 4px 14px 14px;
+  }
+
+  .sidebar-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+
+  .sidebar-stat {
+    background: var(--bg-card);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+  .sidebar-stat-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .sidebar-stat-label {
+    font-size: 8.5px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+
+  .new-session-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 8px 14px 14px;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .new-session-btn:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+
+  /* ═══ CENTER — AGENT CARDS + LOG ═══ */
+  .center-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+
+  /* Agent cards strip */
+  .agent-cards-strip {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+    flex-shrink: 0;
+    scrollbar-width: thin;
+  }
+
+  .agent-card {
+    min-width: 160px;
+    max-width: 180px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .agent-card.working { border-color: #00ff8833; }
+  .agent-card.working::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan));
+  }
+  .agent-card.main-card {
+    min-width: 190px;
+    max-width: 200px;
+    border-color: var(--accent-cyan);
+    background: linear-gradient(180deg, #00d4ff08, var(--bg-card));
+  }
+  .agent-card.main-card.working::before {
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+  }
+  .agent-card.done { border-color: #00d4ff22; opacity: 0.65; }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .card-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--bg-deep);
+    flex-shrink: 0;
+  }
+
+  .card-title { font-size: 12px; font-weight: 600; }
+  .card-status {
+    font-size: 9.5px;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 1px;
+  }
+  .card-status.working { color: var(--accent-green); }
+  .card-status.done { color: var(--accent-cyan); }
+  .card-status.idle { color: var(--text-dim); }
+
+  .card-tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 6px;
+  }
+
+  .card-task {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-task .ck { color: var(--accent-green); }
+  .card-task .sp { color: var(--accent-amber); }
+  .card-task .wt { color: var(--text-dim); }
+
+  .card-progress {
+    margin-top: 8px;
+    height: 2px;
+    background: #1a1d2e;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .card-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+  }
+
+  /* Sub-agent hierarchy */
+  .sub-connector {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin: 0 -4px;
+    opacity: 0.6;
+  }
+
+  .sub-agents-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sub-label {
+    font-size: 8.5px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+    padding-left: 2px;
+  }
+
+  .sub-agents-scroll {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .agent-card.sub-card {
+    min-width: 140px;
+    max-width: 155px;
+    padding: 8px 10px;
+    border-style: dashed;
+    background: #0e101880;
+  }
+  .agent-card.sub-card .card-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+    border-radius: 5px;
+  }
+  .agent-card.sub-card .card-title { font-size: 11px; }
+  .agent-card.sub-card .card-status { font-size: 9px; }
+  .agent-card.sub-card .card-task { font-size: 9.5px; }
+
+  .agent-card.main-card {
+    min-width: 200px;
+    max-width: 210px;
+    flex-shrink: 0;
+  }
+
+  /* Activity log */
+  .log-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .log-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+    flex-shrink: 0;
+  }
+
+  .log-title {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .pill {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+  }
+  .pill.active { border-color: var(--accent-cyan); color: var(--accent-cyan); background: #00d4ff0d; }
+
+  .log-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+  }
+
+  .log-entry {
+    display: flex;
+    padding: 4px 16px;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .log-entry:hover { background: var(--bg-surface); }
+
+  .log-time { color: var(--text-dim); font-size: 10px; min-width: 52px; flex-shrink: 0; padding-top: 1px; }
+
+  .log-agent {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 3px;
+    min-width: 52px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .log-tool {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--bg-elevated);
+    color: var(--accent-amber);
+    flex-shrink: 0;
+    min-width: 38px;
+    text-align: center;
+  }
+
+  .log-msg { color: var(--text-secondary); flex: 1; line-height: 1.5; }
+  .log-msg .fp { color: var(--accent-cyan); }
+  .log-msg .ok { color: var(--accent-green); }
+  .log-msg .err { color: var(--accent-pink); }
+
+  .log-detail {
+    margin: 3px 0 3px 68px;
+    padding: 5px 10px;
+    background: var(--bg-card);
+    border-radius: 4px;
+    border-left: 2px solid var(--accent-cyan);
+    font-size: 10.5px;
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ═══ RIGHT — TERMINAL ═══ */
+  .terminal-panel {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-deep);
+  }
+
+  .term-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 14px;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+
+  .term-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .term-dot.r { background: #ff5f56; }
+  .term-dot.y { background: #ffbd2e; }
+  .term-dot.g { background: #27c93f; }
+  .term-title { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-left: 6px; }
+
+  .term-body {
+    flex: 1;
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    overflow-y: auto;
+    background: #08090f;
+  }
+
+  .tp { color: var(--accent-cyan); }
+  .tg { color: var(--accent-green); }
+  .tr { color: var(--accent-pink); }
+  .tw { color: var(--text-primary); }
+  .td { color: var(--text-dim); }
+  .tc { display: inline-block; width: 7px; height: 14px; background: var(--accent-cyan); animation: blink 1s step-end infinite; vertical-align: text-bottom; }
+
+  .chat-bar {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-surface);
+  }
+
+  .chat-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 10px;
+  }
+  .chat-wrap:focus-within { border-color: var(--accent-cyan); box-shadow: 0 0 0 2px #00d4ff14; }
+
+  .chat-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .chat-input::placeholder { color: var(--text-dim); }
+
+  .chat-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 5px;
+    background: var(--accent-cyan);
+    border: none;
+    color: var(--bg-deep);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* ═══ ANIMATIONS ═══ */
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+  /* 스크롤바 디자인 */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-deep); border-radius: 3px; margin: 4px; }
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #2a3050, #1e2235);
+    border-radius: 3px;
+    border: 1px solid #2a305044;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #3a4060, #2e3245);
+  }
+  ::-webkit-scrollbar-corner { background: var(--bg-deep); }
+
+  /* 에이전트 카드 가로 스크롤바 */
+  .agent-cards-strip::-webkit-scrollbar { height: 4px; }
+  .agent-cards-strip::-webkit-scrollbar-track { background: transparent; margin: 0 12px; }
+  .agent-cards-strip::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+    border-radius: 2px;
+    opacity: 0.4;
+  }
+
+  .sub-agents-scroll::-webkit-scrollbar { height: 3px; }
+  .sub-agents-scroll::-webkit-scrollbar-track { background: transparent; }
+  .sub-agents-scroll::-webkit-scrollbar-thumb {
+    background: #2a3050;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ TOP BAR ═══ -->
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-icon">AO</div>
+      <span class="logo-text">Agent Office</span>
+    </div>
+    <div class="topbar-right">
+      <div class="clock" id="clock">17:23:45</div>
+      <div class="conn-badge">
+        <span class="conn-dot"></span>
+        CONNECTED
+      </div>
+      <button class="topbar-btn">⊕</button>
+      <button class="topbar-btn">⚙</button>
+    </div>
+  </header>
+
+  <!-- ═══ LEFT SIDEBAR — PROJECTS ═══ -->
+  <aside class="sidebar">
+    <div class="sidebar-title">Projects</div>
+
+    <div class="project-list">
+      <!-- Active interactive session -->
+      <div class="project-item active">
+        <div class="project-icon" style="background:linear-gradient(135deg,#00d4ff22,#00d4ff08);border:1px solid #00d4ff33;">
+          <span style="font-size:13px">📂</span>
+          <span class="project-status-dot interactive"></span>
+        </div>
+        <div class="project-info">
+          <div class="project-name">claude-agent-ui</div>
+          <div class="project-meta working">● Interactive · 12:34</div>
+        </div>
+      </div>
+
+      <!-- Monitoring session (working) -->
+      <div class="project-item">
+        <div class="project-icon" style="background:linear-gradient(135deg,#00ff8812,#00ff8808);border:1px solid #00ff8822;">
+          <span style="font-size:13px">📂</span>
+          <span class="project-status-dot working"></span>
+        </div>
+        <div class="project-info">
+          <div class="project-name">api-server</div>
+          <div class="project-meta working">● Working · 5:21</div>
+        </div>
+      </div>
+
+      <!-- Monitoring session (idle) -->
+      <div class="project-item">
+        <div class="project-icon" style="background:var(--bg-card);border:1px solid var(--border);">
+          <span style="font-size:13px">📂</span>
+          <span class="project-status-dot idle"></span>
+        </div>
+        <div class="project-info">
+          <div class="project-name">docs-site</div>
+          <div class="project-meta">○ Idle</div>
+        </div>
+      </div>
+
+      <!-- Another working -->
+      <div class="project-item">
+        <div class="project-icon" style="background:linear-gradient(135deg,#00ff8812,#00ff8808);border:1px solid #00ff8822;">
+          <span style="font-size:13px">📂</span>
+          <span class="project-status-dot working"></span>
+        </div>
+        <div class="project-info">
+          <div class="project-name">payment-service</div>
+          <div class="project-meta working">● Working · 2:07</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="new-session-btn">+ New Session</button>
+
+    <!-- spacer to push session info to bottom -->
+    <div style="flex:1"></div>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- Stats for selected project — bottom -->
+    <div class="sidebar-title">Session Info</div>
+    <div class="sidebar-section">
+      <div class="sidebar-stats">
+        <div class="sidebar-stat">
+          <div class="sidebar-stat-val">47</div>
+          <div class="sidebar-stat-label">Tools</div>
+        </div>
+        <div class="sidebar-stat">
+          <div class="sidebar-stat-val">5</div>
+          <div class="sidebar-stat-label">Agents</div>
+        </div>
+        <div class="sidebar-stat">
+          <div class="sidebar-stat-val" style="font-size:13px">12:34</div>
+          <div class="sidebar-stat-label">Elapsed</div>
+        </div>
+        <div class="sidebar-stat">
+          <div class="sidebar-stat-val">3</div>
+          <div class="sidebar-stat-label">Errors</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ CENTER — AGENT CARDS + ACTIVITY LOG ═══ -->
+  <div class="center-panel">
+
+    <!-- Agent cards: Main + Sub-agents hierarchy -->
+    <div class="agent-cards-strip">
+      <!-- Main Agent (larger, prominent) -->
+      <div class="agent-card main-card working">
+        <div class="card-head">
+          <div class="card-icon" style="background:linear-gradient(135deg,#ff3d71,#ff6b9d);width:30px;height:30px;font-size:13px">M</div>
+          <div>
+            <div class="card-title" style="font-size:13px">Main Agent</div>
+            <div class="card-status working">● Edit 실행 중</div>
+          </div>
+        </div>
+        <div class="card-tasks">
+          <div class="card-task"><span class="ck">✓</span> useWebSocket.ts</div>
+          <div class="card-task"><span class="ck">✓</span> server.js scanner</div>
+          <div class="card-task"><span class="sp">◐</span> TerminalPanel 수정</div>
+          <div class="card-task"><span class="wt">○</span> 빌드 검증</div>
+        </div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:65%;background:linear-gradient(90deg,#00ff88,#00d4ff)"></div></div>
+      </div>
+
+      <!-- Connector: Main → Subs -->
+      <div class="sub-connector">
+        <svg width="24" height="100%" viewBox="0 0 24 120" preserveAspectRatio="none">
+          <path d="M0,60 L12,60" stroke="#2a3050" stroke-width="2" stroke-dasharray="4 3"/>
+          <circle cx="12" cy="60" r="3" fill="#2a3050"/>
+          <path d="M12,20 L12,100" stroke="#2a3050" stroke-width="1.5"/>
+          <path d="M12,20 L24,20" stroke="#2a3050" stroke-width="1.5"/>
+          <path d="M12,45 L24,45" stroke="#2a3050" stroke-width="1.5"/>
+          <path d="M12,70 L24,70" stroke="#2a3050" stroke-width="1.5"/>
+          <path d="M12,95 L24,95" stroke="#2a3050" stroke-width="1.5"/>
+        </svg>
+      </div>
+
+      <!-- Sub-agents group -->
+      <div class="sub-agents-group">
+        <div class="sub-label">SUB-AGENTS</div>
+        <div class="sub-agents-scroll">
+          <!-- Security -->
+          <div class="agent-card sub-card working">
+            <div class="card-head">
+              <div class="card-icon" style="background:linear-gradient(135deg,#a78bfa,#c4b5fd)">S</div>
+              <div>
+                <div class="card-title">Security</div>
+                <div class="card-status working">● XSS 점검</div>
+              </div>
+            </div>
+            <div class="card-tasks">
+              <div class="card-task"><span class="ck">✓</span> innerHTML 스캔</div>
+              <div class="card-task"><span class="sp">◐</span> execFile 검증</div>
+              <div class="card-task"><span class="wt">○</span> 인증 흐름</div>
+            </div>
+            <div class="card-progress"><div class="card-progress-fill" style="width:45%;background:#a78bfa"></div></div>
+          </div>
+
+          <!-- Performance -->
+          <div class="agent-card sub-card working">
+            <div class="card-head">
+              <div class="card-icon" style="background:linear-gradient(135deg,#00d4ff,#66e0ff)">P</div>
+              <div>
+                <div class="card-title">Performance</div>
+                <div class="card-status working">● 번들 분석</div>
+              </div>
+            </div>
+            <div class="card-tasks">
+              <div class="card-task"><span class="sp">◐</span> 번들 사이즈</div>
+              <div class="card-task"><span class="wt">○</span> 렌더링 점검</div>
+            </div>
+            <div class="card-progress"><div class="card-progress-fill" style="width:30%;background:#00d4ff"></div></div>
+          </div>
+
+          <!-- Code Quality -->
+          <div class="agent-card sub-card">
+            <div class="card-head">
+              <div class="card-icon" style="background:linear-gradient(135deg,#00ff88,#66ffbb)">Q</div>
+              <div>
+                <div class="card-title">Quality</div>
+                <div class="card-status idle">○ 대기</div>
+              </div>
+            </div>
+            <div class="card-tasks">
+              <div class="card-task"><span class="wt">○</span> 컨벤션</div>
+              <div class="card-task"><span class="wt">○</span> 중복</div>
+            </div>
+            <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+          </div>
+
+          <!-- Architect -->
+          <div class="agent-card sub-card">
+            <div class="card-head">
+              <div class="card-icon" style="background:linear-gradient(135deg,#ffb800,#ffd666)">A</div>
+              <div>
+                <div class="card-title">Architect</div>
+                <div class="card-status idle">○ 대기</div>
+              </div>
+            </div>
+            <div class="card-tasks">
+              <div class="card-task"><span class="wt">○</span> 구조 분석</div>
+            </div>
+            <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+          </div>
+
+          <!-- Planner -->
+          <div class="agent-card sub-card done">
+            <div class="card-head">
+              <div class="card-icon" style="background:linear-gradient(135deg,#f472b6,#fb7185)">PL</div>
+              <div>
+                <div class="card-title">Planner</div>
+                <div class="card-status done">✓ 완료</div>
+              </div>
+            </div>
+            <div class="card-tasks">
+              <div class="card-task"><span class="ck">✓</span> 시나리오</div>
+              <div class="card-task"><span class="ck">✓</span> 엣지 2건</div>
+            </div>
+            <div class="card-progress"><div class="card-progress-fill" style="width:100%;background:#00d4ff"></div></div>
+          </div>
+
+          <!-- Designer -->
+          <div class="agent-card sub-card done">
+            <div class="card-head">
+              <div class="card-icon" style="background:linear-gradient(135deg,#818cf8,#6366f1)">D</div>
+              <div>
+                <div class="card-title">Designer</div>
+                <div class="card-status done">✓ 완료</div>
+              </div>
+            </div>
+            <div class="card-tasks">
+              <div class="card-task"><span class="ck">✓</span> UI 일관성</div>
+              <div class="card-task"><span class="ck">✓</span> 접근성</div>
+            </div>
+            <div class="card-progress"><div class="card-progress-fill" style="width:100%;background:#00d4ff"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity log -->
+    <div class="log-area">
+      <div class="log-header">
+        <span class="log-title">Activity Log</span>
+        <span class="pill active">All</span>
+        <span class="pill">Tools</span>
+        <span class="pill">Agents</span>
+        <span class="pill">Errors</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--text-dim);font-family:'JetBrains Mono',monospace">127 events</span>
+      </div>
+      <div class="log-body">
+        <div class="log-entry">
+          <span class="log-time">14:23:01</span>
+          <span class="log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span>
+          <span class="log-tool">Edit</span>
+          <span class="log-msg"><span class="fp">useWebSocket.ts</span> — 세션 중복 방지 로직 수정</span>
+        </div>
+        <div class="log-detail">old: if (!linked) { store.getOrCreateSession(...) }
+new: const hasInteractive = [...store.sessions.values()].some(s => s.isManual && ...)</div>
+        <div class="log-entry">
+          <span class="log-time">14:23:04</span>
+          <span class="log-agent" style="background:#a78bfa14;color:#a78bfa">Security</span>
+          <span class="log-tool">Grep</span>
+          <span class="log-msg">패턴: <span class="fp">innerHTML|dangerouslySetInnerHTML</span></span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:06</span>
+          <span class="log-agent" style="background:#00d4ff14;color:#00d4ff">Perf</span>
+          <span class="log-tool">Bash</span>
+          <span class="log-msg">번들 분석: <span class="ok">npm run build --report</span></span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:08</span>
+          <span class="log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span>
+          <span class="log-tool">Write</span>
+          <span class="log-msg"><span class="fp">server.js</span> — scanClaudeProcesses 추가</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:11</span>
+          <span class="log-agent" style="background:#a78bfa14;color:#a78bfa">Security</span>
+          <span class="log-tool">Read</span>
+          <span class="log-msg"><span class="fp">server.js:142</span> — execFile 인자 검증</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:14</span>
+          <span class="log-agent" style="background:#00ff8814;color:#00ff88">Quality</span>
+          <span class="log-tool">Grep</span>
+          <span class="log-msg">중복 코드 패턴: <span class="fp">normalizePath</span></span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:16</span>
+          <span class="log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span>
+          <span class="log-tool">Bash</span>
+          <span class="log-msg">npm run build <span class="ok">✓ 완료 (2.3s)</span></span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:18</span>
+          <span class="log-agent" style="background:#ffb80014;color:#ffb800">Arch</span>
+          <span class="log-tool">Read</span>
+          <span class="log-msg"><span class="fp">useSessionStore.ts</span> — 상태 흐름 분석</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:20</span>
+          <span class="log-agent" style="background:#a78bfa14;color:#a78bfa">Security</span>
+          <span class="log-tool"></span>
+          <span class="log-msg"><span class="err">⚠ XSS 위험: terminal_output에 미검증 데이터 write</span></span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:22</span>
+          <span class="log-agent" style="background:#f472b614;color:#f472b6">Planner</span>
+          <span class="log-tool"></span>
+          <span class="log-msg"><span class="ok">✓ 기능 완성도 OK</span> — 엣지케이스 2건 발견</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:25</span>
+          <span class="log-agent" style="background:#818cf814;color:#818cf8">Designer</span>
+          <span class="log-tool"></span>
+          <span class="log-msg"><span class="ok">✓ UI 일관성 점검 완료</span></span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:28</span>
+          <span class="log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span>
+          <span class="log-tool">Edit</span>
+          <span class="log-msg"><span class="fp">TerminalPanel.tsx</span> — fit 호출 타이밍 수정</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:31</span>
+          <span class="log-agent" style="background:#ff3d7114;color:#ff3d71">Main</span>
+          <span class="log-tool">Read</span>
+          <span class="log-msg"><span class="fp">global.css</span> — 스타일 확인</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:23:34</span>
+          <span class="log-agent" style="background:#00d4ff14;color:#00d4ff">Perf</span>
+          <span class="log-tool"></span>
+          <span class="log-msg"><span class="ok">✓ 번들 사이즈 OK</span> — 234KB gzipped</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT — TERMINAL ═══ -->
+  <div class="terminal-panel">
+    <div class="term-header">
+      <span class="term-dot r"></span>
+      <span class="term-dot y"></span>
+      <span class="term-dot g"></span>
+      <span class="term-title">claude-agent-ui — zsh</span>
+    </div>
+
+    <div class="term-body">
+      <div><span class="tp">~/Desktop/project/claude-agent-ui</span></div>
+      <div><span class="tg">❯ </span><span class="tw">claude</span></div>
+      <div style="margin:6px 0"><span class="tp">╭──────────────────────────────────────╮</span></div>
+      <div><span class="tp">│</span>  <span class="tr" style="font-weight:700">Claude Code</span> <span class="td">v1.0.20</span></div>
+      <div><span class="tp">│</span>  <span class="td">Model: claude-opus-4-6</span></div>
+      <div><span class="tp">╰──────────────────────────────────────╯</span></div>
+      <div style="margin-top:8px"><span class="tg">claude❯ </span><span class="tw">터미널 탭 프로젝트명 매핑 수정해줘</span></div>
+      <div style="margin-top:8px"><span style="color:#7a819e">터미널 탭 프로젝트명 매핑을 수정하겠습니다.</span></div>
+      <div style="margin-top:4px"><span style="color:#7a819e">먼저 현재 구현을 확인합니다...</span></div>
+      <div style="margin-top:6px"><span class="tp">● </span><span class="td">Reading </span><span class="tp">useWebSocket.ts</span></div>
+      <div><span class="tp">● </span><span class="td">Reading </span><span class="tp">useSessionStore.ts</span></div>
+      <div><span class="tg">✓ </span><span class="td">Edited </span><span class="tp">useWebSocket.ts</span></div>
+      <div><span class="tg">✓ </span><span class="td">Edited </span><span class="tp">useSessionStore.ts</span></div>
+      <div style="margin-top:8px"><span style="color:#7a819e">완료! 터미널 탭에 프로젝트 경로에서 추출한</span></div>
+      <div><span style="color:#7a819e">이름이 정확하게 매핑됩니다.</span></div>
+      <div style="margin-top:8px"><span class="tg">claude❯ </span><span class="tw">서브에이전트 리뷰 시작해</span></div>
+      <div style="margin-top:6px"><span style="color:#7a819e">6개 서브에이전트를 병렬로 실행합니다.</span></div>
+      <div style="margin-top:4px"><span class="tp">● </span><span class="td">Agent </span><span style="color:#a78bfa">Security Reviewer</span></div>
+      <div><span class="tp">● </span><span class="td">Agent </span><span style="color:#00d4ff">Performance Reviewer</span></div>
+      <div><span class="tp">● </span><span class="td">Agent </span><span style="color:#00ff88">Code Quality</span></div>
+      <div><span class="tp">● </span><span class="td">Agent </span><span style="color:#ffb800">Architect</span></div>
+      <div><span class="tg">✓ </span><span class="td">Agent </span><span style="color:#f472b6">Planner</span><span class="td"> — 완료</span></div>
+      <div><span class="tg">✓ </span><span class="td">Agent </span><span style="color:#818cf8">Designer</span><span class="td"> — 완료</span></div>
+      <div style="margin-top:8px"><span class="tg">claude❯ </span><span class="tc"></span></div>
+    </div>
+
+    <div class="chat-bar">
+      <div class="chat-wrap">
+        <input class="chat-input" placeholder="Send a message to Claude..." />
+        <button class="chat-btn">↑</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
